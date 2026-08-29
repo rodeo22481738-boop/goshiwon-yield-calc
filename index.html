@@ -1,0 +1,694 @@
+<title>고시원 수익률 계산기</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- 카카오맵 JavaScript 키. 도메인 제한이 걸려 공개돼도 안전 (카카오 공식 방식). 발급: https://developers.kakao.com -->
+<script>window.KAKAO_JS_KEY = "REPLACE_WITH_KAKAO_JS_KEY";</script>
+<style>
+    :root {
+        color-scheme: light dark;
+        --bg-page: #e7e9ec;
+        --bg-color: #f2f4f6;
+        --card-bg: #ffffff;
+        --input-bg: #f7f8fa;
+        --text-primary: #191f28;
+        --text-secondary: #7b8794;
+        --primary-blue: #3182f6;
+        --accent-soft: #e8f2ff;
+        --border-color: #e5e8eb;
+        --danger: #e0435a;
+        --danger-soft: #fdeaec;
+        --shadow-ambient: rgba(25, 31, 40, 0.06);
+        --shadow-dock: rgba(25, 31, 40, 0.12);
+        --safe-area-bottom: env(safe-area-inset-bottom, 20px);
+        --btn-primary-bg: #1d4ed8;
+        --btn-primary-text: #ffffff;
+    }
+
+    @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+            --bg-page: #0c0e12;
+            --bg-color: #14171d;
+            --card-bg: #1b1f27;
+            --input-bg: #21252e;
+            --text-primary: #f0f2f5;
+            --text-secondary: #8b93a1;
+            --primary-blue: #5b9dff;
+            --accent-soft: rgba(91, 157, 255, 0.16);
+            --border-color: #2b303a;
+            --danger: #ff6b7a;
+            --danger-soft: rgba(255, 107, 122, 0.14);
+            --shadow-ambient: rgba(0, 0, 0, 0.3);
+            --shadow-dock: rgba(0, 0, 0, 0.45);
+        }
+    }
+    :root[data-theme="light"] { color-scheme: light; }
+    :root[data-theme="dark"] {
+        color-scheme: dark;
+        --bg-page: #0c0e12;
+        --bg-color: #14171d;
+        --card-bg: #1b1f27;
+        --input-bg: #21252e;
+        --text-primary: #f0f2f5;
+        --text-secondary: #8b93a1;
+        --primary-blue: #5b9dff;
+        --accent-soft: rgba(91, 157, 255, 0.16);
+        --border-color: #2b303a;
+        --danger: #ff6b7a;
+        --danger-soft: rgba(255, 107, 122, 0.14);
+        --shadow-ambient: rgba(0, 0, 0, 0.3);
+        --shadow-dock: rgba(0, 0, 0, 0.45);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Pretendard', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; }
+
+    body { background: var(--bg-page); display: flex; justify-content: center; align-items: flex-start; color: var(--text-primary); }
+
+    .app-container {
+        width: 100%; max-width: 480px; background-color: var(--bg-color);
+        min-height: 100vh; position: relative; padding-bottom: 260px;
+        box-shadow: 0 0 20px var(--shadow-ambient);
+    }
+
+    header { padding: 24px 20px 16px; }
+    header h1 { font-size: 24px; font-weight: 700; line-height: 1.4; letter-spacing: -0.5px; }
+    header p { color: var(--text-secondary); font-size: 14px; margin-top: 4px; }
+
+    .prop-bar {
+        display: flex; gap: 6px; margin: 0 16px 16px; align-items: center;
+    }
+    .prop-bar select {
+        flex: 1; min-width: 0; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border-color);
+        background: var(--card-bg); font-size: 13px; color: var(--text-primary);
+    }
+    .prop-bar button {
+        border: 1px solid var(--border-color); background: var(--card-bg); border-radius: 8px;
+        padding: 10px 12px; font-size: 13px; cursor: pointer; color: var(--text-primary); white-space: nowrap;
+    }
+    .prop-bar button.primary { background: var(--btn-primary-bg); color: var(--btn-primary-text); border-color: var(--btn-primary-bg); }
+    .prop-bar button.danger { color: var(--danger); }
+
+    .toggle-link:focus-visible, .prop-bar button:focus-visible, input:focus-visible {
+        outline: 2px solid var(--primary-blue); outline-offset: 2px;
+    }
+
+    .section { background-color: var(--card-bg); border-radius: 16px; margin: 0 16px 16px; padding: 24px 20px; box-shadow: 0 2px 8px var(--shadow-ambient); }
+    .section-title { font-size: 18px; font-weight: 600; margin-bottom: 16px; }
+
+    .room-row { display: grid; grid-template-columns: 56px 1fr 1fr; gap: 10px; align-items: center; margin-bottom: 12px; }
+    .room-row:last-child { margin-bottom: 0; }
+    .room-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+
+    .input-group { margin-bottom: 16px; }
+    .input-group:last-child { margin-bottom: 0; }
+    .input-label { display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; font-weight: 500; }
+    .input-wrapper { position: relative; display: flex; align-items: center; }
+
+    input[type="number"], input[type="text"] {
+        width: 100%; background-color: var(--input-bg); border: 1px solid var(--border-color); border-radius: 8px;
+        padding: 14px 40px 14px 16px; font-size: 16px; font-weight: 500; color: var(--text-primary);
+        transition: all 0.2s; text-align: right; font-variant-numeric: tabular-nums;
+    }
+    input[type="number"]:focus, input[type="text"]:focus { outline: none; border-color: var(--primary-blue); background-color: var(--card-bg); }
+    .room-row input[type="number"] { padding: 10px 32px 10px 10px; font-size: 14px; }
+
+    .unit { position: absolute; right: 16px; color: var(--text-secondary); font-size: 15px; pointer-events: none; }
+    .room-row .unit { right: 10px; font-size: 12px; }
+
+    .toggle-link {
+        display: inline-flex; align-items: center; gap: 4px; margin-top: 16px; font-size: 13px; color: var(--primary-blue);
+        cursor: pointer; font-weight: 500; user-select: none;
+        background: none; border: none; padding: 0; font-family: inherit;
+    }
+    .toggle-link .arrow { transition: transform 0.2s; }
+    .toggle-link.open .arrow { transform: rotate(180deg); }
+
+    .advanced { display: none; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color); }
+    .advanced.open { display: block; }
+
+    .scenario-table { display: none; margin-top: 16px; width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+    .scenario-table.open { display: table; }
+    .scenario-table th, .scenario-table td { padding: 8px 4px; text-align: right; border-bottom: 1px solid var(--border-color); }
+    .scenario-table th:first-child, .scenario-table td:first-child { text-align: left; color: var(--text-secondary); }
+    .scenario-table .neg { color: var(--danger); }
+
+    .result-dock {
+        position: fixed; bottom: 0; width: 100%; max-width: 480px; background-color: var(--card-bg);
+        border-radius: 24px 24px 0 0; padding: 24px 24px calc(24px + var(--safe-area-bottom));
+        box-shadow: 0 -4px 16px var(--shadow-dock); z-index: 100;
+    }
+    .result-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .result-row.divider { margin-top: 16px; border-top: 1px solid var(--border-color); padding-top: 16px; }
+    .result-label { font-size: 15px; color: var(--text-secondary); font-weight: 500; }
+    .result-value { font-size: 18px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+    .result-highlight { font-size: 28px; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }
+    .result-highlight.pos { color: var(--primary-blue); }
+    .result-highlight.neg { color: var(--danger); }
+    .roi-badge { background-color: var(--accent-soft); color: var(--primary-blue); padding: 4px 8px; border-radius: 6px; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .roi-badge.neg { background-color: var(--danger-soft); color: var(--danger); }
+    .loss-hint { display: none; font-size: 12px; color: var(--danger); margin-top: 8px; line-height: 1.4; }
+    .loss-hint.show { display: block; }
+
+    .nearby-btn {
+        display: block; width: 100%; text-align: center; text-decoration: none;
+        padding: 14px 16px; margin-bottom: 10px; border-radius: 8px;
+        border: 1px solid var(--border-color); background: var(--input-bg);
+        color: var(--text-primary); font-size: 14px; font-weight: 600;
+    }
+    .nearby-btn.disabled { opacity: 0.4; pointer-events: none; }
+    .nearby-note { font-size: 12px; color: var(--text-secondary); line-height: 1.5; margin-top: 8px; }
+    .nearby-note a { color: var(--primary-blue); }
+
+    #nearbyMap { width: 100%; height: 300px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 12px; display: none; background: var(--input-bg); }
+    #nearbyMap.show { display: block; }
+    .nearby-status { font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; }
+    .nearby-list { margin: 8px 0 4px; }
+    .nearby-list h4 { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+    .nearby-list ul { list-style: none; }
+    .nearby-list li { font-size: 13px; padding: 6px 0; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; gap: 8px; }
+    .nearby-list li:last-child { border-bottom: none; }
+    .nearby-list li a { color: var(--primary-blue); text-decoration: none; white-space: nowrap; }
+    .nearby-list .meta { color: var(--text-secondary); font-size: 12px; }
+    .nearby-fallback { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-color); }
+</style>
+
+<div class="app-container">
+    <header>
+        <h1>고시원 수익률<br>자동 분석기</h1>
+        <p>방개수·보증금·권리금·방별임대료만 넣으면 바로 계산됩니다.</p>
+    </header>
+
+    <div class="prop-bar">
+        <select id="propList" onchange="onSelectProperty()"></select>
+        <button class="primary" onclick="saveProperty()">저장</button>
+        <button onclick="newProperty()">새 매물</button>
+        <button class="danger" onclick="deleteProperty()">삭제</button>
+    </div>
+
+    <main>
+        <!-- 매물명 -->
+        <section class="section">
+            <div class="input-group">
+                <label class="input-label" for="propName">매물명</label>
+                <input type="text" id="propName" placeholder="예: 가람원룸텔(고양주엽)" style="text-align:left; padding-right:16px;">
+            </div>
+            <div class="input-group">
+                <label class="input-label" for="address">주소</label>
+                <input type="text" id="address" placeholder="예: 서울 강남구 역삼동 123-45" oninput="updateNearbyLinks()" onchange="onAddressChange()" style="text-align:left; padding-right:16px;">
+            </div>
+        </section>
+
+        <!-- 방 정보 -->
+        <section class="section">
+            <div class="section-title">방 정보</div>
+            <div class="room-row">
+                <span class="room-name">미니룸</span>
+                <div class="input-wrapper"><input type="number" id="mini_count" value="0" oninput="recalc()" aria-label="미니룸 방개수"><span class="unit">개</span></div>
+                <div class="input-wrapper"><input type="number" id="mini_rent" value="0" oninput="recalc()" aria-label="미니룸 방별임대료"><span class="unit">만원</span></div>
+            </div>
+            <div class="room-row">
+                <span class="room-name">샤워룸</span>
+                <div class="input-wrapper"><input type="number" id="shower_count" value="0" oninput="recalc()" aria-label="샤워룸 방개수"><span class="unit">개</span></div>
+                <div class="input-wrapper"><input type="number" id="shower_rent" value="0" oninput="recalc()" aria-label="샤워룸 방별임대료"><span class="unit">만원</span></div>
+            </div>
+            <div class="room-row">
+                <span class="room-name">원룸</span>
+                <div class="input-wrapper"><input type="number" id="oneroom_count" value="0" oninput="recalc()" aria-label="원룸 방개수"><span class="unit">개</span></div>
+                <div class="input-wrapper"><input type="number" id="oneroom_rent" value="0" oninput="recalc()" aria-label="원룸 방별임대료"><span class="unit">만원</span></div>
+            </div>
+        </section>
+
+        <!-- 초기 투자금 -->
+        <section class="section">
+            <div class="section-title">초기 투자금</div>
+            <div class="input-group">
+                <label class="input-label" for="deposit">보증금</label>
+                <div class="input-wrapper"><input type="number" id="deposit" value="0" oninput="recalc()"><span class="unit">만원</span></div>
+            </div>
+            <div class="input-group">
+                <label class="input-label" for="premium">권리금</label>
+                <div class="input-wrapper"><input type="number" id="premium" value="0" oninput="recalc()"><span class="unit">만원</span></div>
+            </div>
+
+            <button type="button" class="toggle-link" onclick="toggleClass(this, 'advInvest')" aria-expanded="false" aria-controls="advInvest">상세설정 (시설투자·집기류·중개수수료율) <span class="arrow">▾</span></button>
+            <div class="advanced" id="advInvest">
+                <div class="input-group">
+                    <label class="input-label" for="facility">시설투자</label>
+                    <div class="input-wrapper"><input type="number" id="facility" value="0" oninput="recalc()"><span class="unit">만원</span></div>
+                </div>
+                <div class="input-group">
+                    <label class="input-label" for="furniture">집기류</label>
+                    <div class="input-wrapper"><input type="number" id="furniture" value="0" oninput="recalc()"><span class="unit">만원</span></div>
+                </div>
+                <div class="input-group">
+                    <label class="input-label" for="brokerRate">중개수수료율</label>
+                    <div class="input-wrapper"><input type="number" id="brokerRate" value="0.9" step="0.1" oninput="recalc()"><span class="unit">%</span></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 월 비용 -->
+        <section class="section">
+            <div class="section-title">월 비용</div>
+            <div class="input-group">
+                <label class="input-label" for="rent">임차료 (월세)</label>
+                <div class="input-wrapper"><input type="number" id="rent" value="0" oninput="recalc()"><span class="unit">만원</span></div>
+            </div>
+            <div class="input-group">
+                <label class="input-label" for="mgmtFee">관리비</label>
+                <div class="input-wrapper"><input type="number" id="mgmtFee" value="0" oninput="recalc()"><span class="unit">만원</span></div>
+            </div>
+
+            <button type="button" class="toggle-link" onclick="toggleClass(this, 'advCost')" aria-expanded="false" aria-controls="advCost">상세설정 (방유형별 부대비용 단가) <span class="arrow">▾</span></button>
+            <div class="advanced" id="advCost">
+                <div class="input-group">
+                    <label class="input-label" for="mini_unitcost">미니룸 부대비용 (전기·세금 등, 개당)</label>
+                    <div class="input-wrapper"><input type="number" id="mini_unitcost" value="5" step="0.1" oninput="recalc()"><span class="unit">만원</span></div>
+                </div>
+                <div class="input-group">
+                    <label class="input-label" for="shower_unitcost">샤워룸 부대비용 (개당)</label>
+                    <div class="input-wrapper"><input type="number" id="shower_unitcost" value="5.5" step="0.1" oninput="recalc()"><span class="unit">만원</span></div>
+                </div>
+                <div class="input-group">
+                    <label class="input-label" for="oneroom_unitcost">원룸 부대비용 (개당)</label>
+                    <div class="input-wrapper"><input type="number" id="oneroom_unitcost" value="6" step="0.1" oninput="recalc()"><span class="unit">만원</span></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 입실률 -->
+        <section class="section">
+            <div class="section-title">입실률</div>
+            <div class="input-group">
+                <label class="input-label" for="occRate">예상 입실률</label>
+                <div class="input-wrapper"><input type="number" id="occRate" value="85" oninput="recalc()"><span class="unit">%</span></div>
+            </div>
+
+            <button type="button" class="toggle-link" onclick="toggleScenario(this)" aria-expanded="false" aria-controls="scenarioTable">다른 입실률로 보기 <span class="arrow">▾</span></button>
+            <table class="scenario-table" id="scenarioTable">
+                <thead><tr><th>입실률</th><th>90%</th><th>80%</th><th>70%</th><th>60%</th><th>50%</th></tr></thead>
+                <tbody>
+                    <tr><td>월임대수익</td><td id="sc_profit_0"></td><td id="sc_profit_1"></td><td id="sc_profit_2"></td><td id="sc_profit_3"></td><td id="sc_profit_4"></td></tr>
+                    <tr><td>연수익률</td><td id="sc_yield_0"></td><td id="sc_yield_1"></td><td id="sc_yield_2"></td><td id="sc_yield_3"></td><td id="sc_yield_4"></td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- 주변 정보 확인 -->
+        <section class="section">
+            <div class="section-title">주변 정보 확인</div>
+            <p class="nearby-status" id="nearbyStatus">주소를 입력하면 반경 2km 지도가 표시됩니다.</p>
+            <div id="nearbyMap"></div>
+
+            <div class="nearby-list" id="gosiList" hidden>
+                <h4>주변 고시원·원룸텔 <span class="meta" id="gosiCount"></span></h4>
+                <ul></ul>
+                <p class="nearby-note">방값(월세)은 지도 데이터에 없습니다 — 이름을 눌러 카카오맵에서 확인하세요.</p>
+            </div>
+
+            <div class="nearby-list" id="redevList" hidden>
+                <h4>주변 재개발·재건축 구역 <span class="meta" id="redevCount"></span></h4>
+                <ul></ul>
+            </div>
+
+            <div class="nearby-fallback">
+                <a class="nearby-btn disabled" id="lnkGosi" target="_blank" rel="noopener" aria-disabled="true">🏠 네이버지도에서 주변 고시원 보기</a>
+                <a class="nearby-btn" id="lnkRedev1" target="_blank" rel="noopener" href="https://cleanup.seoul.go.kr/cleanup/bsnssttus/lscrMainIndx.do">🏗️ 서울 재개발·재건축 사업장 (정비사업 정보몽땅)</a>
+                <a class="nearby-btn" id="lnkRedev2" target="_blank" rel="noopener" href="https://jjmap.co.kr/">🏗️ 전국 재개발·재건축 지도 (재재맵)</a>
+                <p class="nearby-note">재개발 데이터는 서울시만 제공됩니다(전국 통합 API 없음). 서울 외 지역은 위 링크에서 확인하세요. 전국 고시원 매물: <a href="http://www.gosi1.net/" target="_blank" rel="noopener">고시원넷</a>.</p>
+            </div>
+        </section>
+    </main>
+
+    <div class="result-dock">
+        <div class="result-row">
+            <span class="result-label">예상 월 순수익</span>
+            <div><span class="result-highlight" id="net_profit">0</span><span style="font-weight:600; font-size:16px;"> 만원</span></div>
+        </div>
+        <div class="result-row divider">
+            <span class="result-label">연 수익률 (보증금 포함)</span>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span class="roi-badge" id="payback_period">원금회수 0개월</span>
+                <span class="result-value" id="roi_percentage">0%</span>
+            </div>
+        </div>
+        <p class="loss-hint" id="lossHint"></p>
+    </div>
+</div>
+
+<script>
+const STORAGE_KEY = "goshiwon_properties_v2";
+let currentId = null;
+const ROOM_TYPES = ["mini", "shower", "oneroom"];
+
+function num(id) { return parseFloat(document.getElementById(id).value) || 0; }
+function fmt(n) { return Number.isFinite(n) ? Math.round(n).toLocaleString() : "-"; }
+
+function toggleClass(el, targetId) {
+    const isOpen = el.classList.toggle('open');
+    document.getElementById(targetId).classList.toggle('open');
+    el.setAttribute('aria-expanded', isOpen);
+}
+function toggleScenario(el) {
+    const isOpen = el.classList.toggle('open');
+    document.getElementById('scenarioTable').classList.toggle('open');
+    el.setAttribute('aria-expanded', isOpen);
+}
+
+function computeAt(occRate, ctx) {
+    const revenue = ROOM_TYPES.reduce((a, t) => a + ctx.counts[t] * ctx.rents[t] * occRate, 0);
+    const profit = revenue - ctx.ownerRentMgmt - ctx.incidental;
+    const payback = profit !== 0 ? ctx.premium / profit : NaN;
+    const yieldRate = ctx.investTotal !== 0 ? (profit * 12 / ctx.investTotal) : NaN;
+    return { revenue, profit, payback, yieldRate };
+}
+
+function recalc() {
+    const counts = {}, rents = {}, unitCost = {};
+    ROOM_TYPES.forEach(t => {
+        counts[t] = num(t + "_count");
+        rents[t] = num(t + "_rent");
+        unitCost[t] = num(t + "_unitcost");
+    });
+
+    const deposit = num("deposit"), premium = num("premium");
+    const facility = num("facility"), furniture = num("furniture");
+    const brokerRate = num("brokerRate") / 100;
+    const rent = num("rent"), mgmtFee = num("mgmtFee");
+
+    const dealAmount = deposit + premium + rent * 100;
+    const brokerFee = dealAmount * brokerRate;
+    const investTotal = deposit + premium + facility + furniture + brokerFee;
+
+    const ownerRentMgmt = rent + mgmtFee;
+    const incidental = ROOM_TYPES.reduce((a, t) => a + counts[t] * unitCost[t], 0);
+
+    const ctx = { counts, rents, ownerRentMgmt, incidental, premium, investTotal };
+
+    // 메인 결과 (사용자 지정 입실률)
+    const occRate = num("occRate") / 100;
+    const main = computeAt(occRate, ctx);
+
+    const profitEl = document.getElementById("net_profit");
+    profitEl.textContent = fmt(main.profit);
+    profitEl.className = "result-highlight " + (main.profit > 0 ? "pos" : "neg");
+
+    const roiEl = document.getElementById("roi_percentage");
+    const paybackEl = document.getElementById("payback_period");
+    const lossHintEl = document.getElementById("lossHint");
+    if (Number.isFinite(main.yieldRate) && main.profit > 0) {
+        roiEl.textContent = (main.yieldRate * 100).toFixed(1) + "%";
+        roiEl.style.color = "";
+        paybackEl.textContent = `원금회수 약 ${Math.ceil(main.payback)}개월`;
+        paybackEl.className = "roi-badge";
+        lossHintEl.className = "loss-hint";
+        lossHintEl.textContent = "";
+    } else {
+        roiEl.textContent = "적자 예상";
+        roiEl.style.color = "var(--danger)";
+        paybackEl.textContent = "회수 불가";
+        paybackEl.className = "roi-badge neg";
+        lossHintEl.className = "loss-hint show";
+        lossHintEl.textContent = "입실률을 높이거나 권리금·임차료를 낮추면 회수 가능합니다.";
+    }
+
+    // 시나리오 표 (90/80/70/60/50%)
+    [0.9, 0.8, 0.7, 0.6, 0.5].forEach((r, i) => {
+        const s = computeAt(r, ctx);
+        const pEl = document.getElementById("sc_profit_" + i);
+        pEl.textContent = fmt(s.profit);
+        pEl.className = s.profit < 0 ? "neg" : "";
+        const yEl = document.getElementById("sc_yield_" + i);
+        yEl.textContent = Number.isFinite(s.yieldRate) ? (s.yieldRate * 100).toFixed(1) + "%" : "-";
+        yEl.className = s.yieldRate < 0 ? "neg" : "";
+    });
+}
+
+function updateNearbyLinks() {
+    const addr = document.getElementById("address").value.trim();
+    const a = document.getElementById("lnkGosi");
+    if (addr) {
+        a.href = "https://map.naver.com/p/search/" + encodeURIComponent(addr + " 고시원");
+        a.classList.remove("disabled");
+        a.removeAttribute("aria-disabled");
+    } else {
+        a.removeAttribute("href");
+        a.classList.add("disabled");
+        a.setAttribute("aria-disabled", "true");
+    }
+}
+
+/* ===== 주변 지도 (카카오맵) ===== */
+const RADIUS_M = 2000;
+let kakaoReady = null;      // Promise<boolean>
+let nearbyMap = null;
+let nearbyOverlays = [];    // 마커·원 등 지도에서 지울 오버레이
+let redevCache = null;      // redevelopment.json 캐시
+
+function loadKakao() {
+    if (kakaoReady) return kakaoReady;
+    kakaoReady = new Promise(resolve => {
+        const key = window.KAKAO_JS_KEY;
+        if (!key || key === "REPLACE_WITH_KAKAO_JS_KEY") { resolve(false); return; }
+        const s = document.createElement("script");
+        s.src = "//dapi.kakao.com/v2/maps/sdk.js?autoload=false&libraries=services&appkey=" + key;
+        s.onload = () => kakao.maps.load(() => resolve(true));
+        s.onerror = () => resolve(false);
+        document.head.appendChild(s);
+    });
+    return kakaoReady;
+}
+
+function clearOverlays() {
+    nearbyOverlays.forEach(o => o.setMap(null));
+    nearbyOverlays = [];
+}
+
+function setStatus(msg) { document.getElementById("nearbyStatus").textContent = msg; }
+
+function haversine(a, b) {
+    const R = 6371000, rad = d => d * Math.PI / 180;
+    const dLat = rad(b.lat - a.lat), dLng = rad(b.lng - a.lng);
+    const s = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(s));
+}
+
+function renderList(elId, countId, items, makeRow) {
+    const box = document.getElementById(elId);
+    const ul = box.querySelector("ul");
+    ul.innerHTML = "";
+    items.forEach(it => ul.insertAdjacentHTML("beforeend", makeRow(it)));
+    document.getElementById(countId).textContent = items.length ? `${items.length}곳` : "없음";
+    box.hidden = false;
+}
+
+function onAddressChange() {
+    updateNearbyLinks();
+    const addr = document.getElementById("address").value.trim();
+    const mapEl = document.getElementById("nearbyMap");
+    document.getElementById("gosiList").hidden = true;
+    document.getElementById("redevList").hidden = true;
+    if (!addr) { mapEl.classList.remove("show"); setStatus("주소를 입력하면 반경 2km 지도가 표시됩니다."); return; }
+
+    setStatus("지도를 불러오는 중…");
+    loadKakao().then(ok => {
+        if (!ok) { mapEl.classList.remove("show"); setStatus("카카오맵 키가 설정되지 않았습니다. 아래 링크를 이용하세요."); return; }
+        const geocoder = new kakao.maps.services.Geocoder();
+        geocoder.addressSearch(addr, (res, status) => {
+            if (status !== kakao.maps.services.Status.OK || !res.length) {
+                mapEl.classList.remove("show");
+                setStatus("주소를 찾을 수 없습니다. 지번/도로명 주소로 다시 입력하거나 아래 링크를 이용하세요.");
+                return;
+            }
+            const center = { lat: +res[0].y, lng: +res[0].x };
+            drawMap(center);
+        });
+    });
+}
+
+function drawMap(center) {
+    const mapEl = document.getElementById("nearbyMap");
+    mapEl.classList.add("show");
+    const pos = new kakao.maps.LatLng(center.lat, center.lng);
+    if (!nearbyMap) nearbyMap = new kakao.maps.Map(mapEl, { center: pos, level: 6 });
+    else nearbyMap.setCenter(pos);
+    nearbyMap.relayout();
+    clearOverlays();
+
+    // 내 주소 핀 + 2km 원
+    nearbyOverlays.push(new kakao.maps.Marker({ map: nearbyMap, position: pos, zIndex: 10 }));
+    nearbyOverlays.push(new kakao.maps.Circle({
+        map: nearbyMap, center: pos, radius: RADIUS_M,
+        strokeWeight: 1, strokeColor: "#3182f6", strokeOpacity: 0.8,
+        fillColor: "#3182f6", fillOpacity: 0.06
+    }));
+    nearbyMap.setBounds(new kakao.maps.LatLngBounds(
+        new kakao.maps.LatLng(center.lat - 0.022, center.lng - 0.028),
+        new kakao.maps.LatLng(center.lat + 0.022, center.lng + 0.028)
+    ));
+
+    setStatus(`반경 2km · ${document.getElementById("address").value.trim()}`);
+    searchGosi(center);
+    searchRedev(center);
+}
+
+function searchGosi(center) {
+    const places = new kakao.maps.services.Places();
+    const seen = new Set();
+    const found = [];
+    let pending = 2;
+    const done = () => {
+        if (--pending) return;
+        found.sort((a, b) => a.dist - b.dist);
+        found.forEach(p => {
+            const m = new kakao.maps.Marker({
+                map: nearbyMap, position: new kakao.maps.LatLng(p.lat, p.lng),
+                image: new kakao.maps.MarkerImage("data:image/svg+xml;base64," + btoa(
+                    '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"><circle cx="9" cy="9" r="7" fill="#e0435a" stroke="#fff" stroke-width="2"/></svg>'),
+                    new kakao.maps.Size(18, 18))
+            });
+            nearbyOverlays.push(m);
+        });
+        renderList("gosiList", "gosiCount", found, p =>
+            `<li><span>${escapeHtml(p.name)}<br><span class="meta">${escapeHtml(p.addr || "")} · ${Math.round(p.dist)}m</span></span>` +
+            `<a href="${p.url}" target="_blank" rel="noopener">카카오맵</a></li>`);
+    };
+    ["고시원", "원룸텔"].forEach(kw => {
+        places.keywordSearch(kw, (data, status) => {
+            if (status === kakao.maps.services.Status.OK) {
+                data.forEach(d => {
+                    if (seen.has(d.id)) return;
+                    seen.add(d.id);
+                    const lat = +d.y, lng = +d.x;
+                    const dist = haversine(center, { lat, lng });
+                    if (dist <= RADIUS_M) found.push({ name: d.place_name, addr: d.road_address_name || d.address_name, url: d.place_url, lat, lng, dist });
+                });
+            }
+            done();
+        }, { x: center.lng, y: center.lat, radius: RADIUS_M, size: 15 });
+    });
+}
+
+function searchRedev(center) {
+    const render = () => {
+        if (!Array.isArray(redevCache)) { document.getElementById("redevList").hidden = true; return; }
+        const near = redevCache
+            .map(z => ({ ...z, dist: haversine(center, { lat: z.lat, lng: z.lng }) }))
+            .filter(z => z.dist <= RADIUS_M)
+            .sort((a, b) => a.dist - b.dist);
+        near.forEach(z => {
+            const m = new kakao.maps.Marker({
+                map: nearbyMap, position: new kakao.maps.LatLng(z.lat, z.lng),
+                image: new kakao.maps.MarkerImage("data:image/svg+xml;base64," + btoa(
+                    '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"><rect x="2" y="2" width="14" height="14" rx="3" fill="#1d4ed8" stroke="#fff" stroke-width="2"/></svg>'),
+                    new kakao.maps.Size(18, 18))
+            });
+            nearbyOverlays.push(m);
+        });
+        renderList("redevList", "redevCount", near, z =>
+            `<li><span>${escapeHtml(z.name)}<br><span class="meta">${escapeHtml(z.type || "")} · ${escapeHtml(z.status || "")} · ${Math.round(z.dist)}m</span></span></li>`);
+    };
+    if (redevCache !== null) { render(); return; }
+    fetch("data/redevelopment.json")
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(j => { redevCache = j; render(); })
+        .catch(() => { redevCache = false; document.getElementById("redevList").hidden = true; });
+}
+
+function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function collectState() {
+    const ids = [
+        "mini_count","mini_rent","shower_count","shower_rent","oneroom_count","oneroom_rent",
+        "deposit","premium","facility","furniture","brokerRate",
+        "rent","mgmtFee","mini_unitcost","shower_unitcost","oneroom_unitcost","occRate",
+        "address"
+    ];
+    const state = {};
+    ids.forEach(id => state[id] = document.getElementById(id).value);
+    return state;
+}
+
+function applyState(state) {
+    Object.keys(state).forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = state[id];
+    });
+    recalc();
+    updateNearbyLinks();
+    onAddressChange();
+}
+
+function loadAll() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+    catch (e) { return []; }
+}
+function saveAll(list) { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); }
+
+function refreshList(selectId) {
+    const list = loadAll();
+    const sel = document.getElementById("propList");
+    sel.innerHTML = '<option value="">-- 매물 선택 --</option>';
+    list.forEach(p => {
+        const opt = document.createElement("option");
+        opt.value = p.id;
+        opt.textContent = p.name;
+        sel.appendChild(opt);
+    });
+    if (selectId) sel.value = selectId;
+}
+
+function saveProperty() {
+    const name = document.getElementById("propName").value.trim();
+    if (!name) { alert("매물명을 입력하세요."); return; }
+    const list = loadAll();
+    const state = collectState();
+    if (currentId) {
+        const idx = list.findIndex(p => p.id === currentId);
+        if (idx >= 0) { list[idx].name = name; list[idx].data = state; }
+        else { list.push({ id: currentId, name, data: state }); }
+    } else {
+        currentId = "p_" + Date.now();
+        list.push({ id: currentId, name, data: state });
+    }
+    saveAll(list);
+    refreshList(currentId);
+}
+
+function onSelectProperty() {
+    const id = document.getElementById("propList").value;
+    if (!id) return;
+    const p = loadAll().find(x => x.id === id);
+    if (!p) return;
+    currentId = p.id;
+    document.getElementById("propName").value = p.name;
+    applyState(p.data);
+}
+
+function newProperty() {
+    currentId = null;
+    document.getElementById("propName").value = "";
+    document.getElementById("address").value = "";
+    document.querySelectorAll("input[type=number]").forEach(el => { el.value = el.defaultValue; });
+    document.getElementById("propList").value = "";
+    recalc();
+    updateNearbyLinks();
+    onAddressChange();
+}
+
+function deleteProperty() {
+    if (!currentId) { alert("삭제할 매물을 먼저 선택하세요."); return; }
+    if (!confirm("선택한 매물을 삭제할까요?")) return;
+    saveAll(loadAll().filter(p => p.id !== currentId));
+    newProperty();
+    refreshList();
+}
+
+refreshList();
+recalc();
+updateNearbyLinks();
+</script>

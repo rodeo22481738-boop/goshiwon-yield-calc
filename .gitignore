@@ -1,0 +1,7 @@
+.env
+*.log
+.impeccable/
+node_modules/
+.DS_Store
+data/*_raw.csv
+scratchpad/
