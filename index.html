@@ -4,6 +4,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- 카카오맵 JavaScript 키(도메인 제한, 공개 안전). 주소→좌표 변환에만 사용. 발급: https://developers.kakao.com -->
+<script>window.KAKAO_JS_KEY = "a66749202196f535a2d455027bf172ca";</script>
 <style>
     :root {
         color-scheme: light dark;
@@ -285,15 +287,15 @@
         <!-- 주변 정보 확인 -->
         <section class="section">
             <div class="section-title">주변 정보 확인</div>
-            <p class="nearby-note" id="nearbyHint" style="margin-top:0;margin-bottom:12px;">주소를 입력하면 아래 버튼이 그 위치 기준으로 열립니다.</p>
+            <p class="nearby-note" id="nearbyHint" style="margin-top:0;margin-bottom:12px;">주소를 입력하면 고시원 버튼이 그 위치 중심으로 열립니다.</p>
 
-            <a class="nearby-btn disabled" id="lnkGosi" target="_blank" rel="noopener" aria-disabled="true">🏠 주변 고시원·원룸텔 시세</a>
-            <a class="nearby-btn disabled" id="lnkRedevMap" target="_blank" rel="noopener" aria-disabled="true">🏗️ 주변 재개발·재건축 조합 (카카오맵)</a>
+            <a class="nearby-btn disabled" id="lnkGosi" target="_blank" rel="noopener" aria-disabled="true">🏠 주변 고시원·원룸텔 (카카오맵)</a>
+            <a class="nearby-btn" id="lnkEum" target="_blank" rel="noopener" href="https://www.eum.go.kr/web/am/amMain.jsp">🏗️ 이 주소가 정비구역인지 확인 (토지이음)</a>
             <a class="nearby-btn" id="lnkRedevJj" target="_blank" rel="noopener" href="https://jjmap.co.kr/">🏗️ 재개발·재건축 구역 지도 (재재맵)</a>
             <a class="nearby-btn" id="lnkRedevGov" target="_blank" rel="noopener" href="https://cleanup.seoul.go.kr/cleanup/bsnssttus/lscrMainIndx.do">🏗️ 서울 재개발·재건축 공식 현황 (정비사업 정보몽땅)</a>
 
-            <p class="nearby-note"><b>카카오맵</b> 조합검색은 저장 주소의 구·동 기준으로 열립니다. 왼쪽 목록에 "OO구역" 이름이 나옵니다(지도 핀만 보면 구분 안 됨).</p>
-            <p class="nearby-note"><b>재재맵</b>은 구역 경계를 색으로 그려주지만 구역명을 직접 입력해야 하고, <b>정비사업 정보몽땅</b>은 서울시 공식 자료(구역·단계·조합 예산)로 자치구를 직접 골라야 합니다. 전국 고시원 매물: <a href="http://www.gosi1.net/" target="_blank" rel="noopener">고시원넷</a>.</p>
+            <p class="nearby-note"><b>토지이음</b>에서 지번 <b id="eumJibun">(주소 입력 필요)</b> 을 입력 → 열람 → <b>「지역지구등 지정여부」</b> 칸에 <b>"정비구역"·"재정비촉진지구"</b>가 있으면 그 필지가 재개발·재건축 구역입니다(국토부 공식). 사이트 자동 이동은 안 돼서 지번은 직접 입력해야 합니다.</p>
+            <p class="nearby-note"><b>재재맵</b>은 구역 경계를 색으로 보여주고(구역명 검색), <b>정비사업 정보몽땅</b>은 서울시 공식 사업장·단계·조합 예산(자치구 선택). 전국 고시원 매물: <a href="http://www.gosi1.net/" target="_blank" rel="noopener">고시원넷</a>.</p>
         </section>
     </main>
 
@@ -401,7 +403,7 @@ function recalc() {
     });
 }
 
-// 주소에서 "구/군 + 법정동" 만 뽑아냄 (카카오맵 키워드 검색은 번지가 붙으면 주소로만 해석함)
+// 주소에서 "구/군 + 법정동" 만 뽑아냄 (카카오맵 키워드검색은 번지가 붙으면 주소로만 해석함)
 function districtOf(addr) {
     const toks = addr.split(/\s+/);
     const gu = toks.find(t => /(구|군)$/.test(t));
@@ -409,23 +411,64 @@ function districtOf(addr) {
     return [gu, dong].filter(Boolean).join(" ") || addr;
 }
 
-// 주소 기준으로 열리는 외부 지도 링크 세팅. 주소 없으면 버튼 비활성.
+// 카카오 지도 SDK(services) 지연 로드 — 주소→좌표 변환 전용
+let kakaoSdkP = null;
+function loadKakaoSdk() {
+    if (kakaoSdkP) return kakaoSdkP;
+    kakaoSdkP = new Promise(resolve => {
+        const k = window.KAKAO_JS_KEY;
+        if (!k || k.indexOf("REPLACE") === 0) { resolve(false); return; }
+        const s = document.createElement("script");
+        s.src = "//dapi.kakao.com/v2/maps/sdk.js?autoload=false&libraries=services&appkey=" + k;
+        s.onload = () => kakao.maps.load(() => resolve(true));
+        s.onerror = () => resolve(false);
+        document.head.appendChild(s);
+    });
+    return kakaoSdkP;
+}
+
+// 주소 → 카카오맵 중심좌표(WCONGNAMUL). 실패 시 null. addr별 1회 캐시.
+let geoCache = { addr: null, x: null, y: null };
+async function geocodeCenter(addr) {
+    if (geoCache.addr === addr) return geoCache.x ? geoCache : null;
+    if (!(await loadKakaoSdk())) return null;
+    const gc = new kakao.maps.services.Geocoder();
+    const OK = kakao.maps.services.Status.OK;
+    let hit = await new Promise(r => gc.addressSearch(addr, (res, st) => r(st === OK && res[0] ? res[0] : null)));
+    if (!hit) hit = await new Promise(r => new kakao.maps.services.Places().keywordSearch(addr, (d, st) => r(st === OK && d[0] ? d[0] : null)));
+    if (!hit) { geoCache = { addr, x: null, y: null }; return null; }
+    const w = await new Promise(r => gc.transCoord(+hit.x, +hit.y, (res, st) => r(st === OK && res[0] ? res[0] : null), { input_coord: "WGS84", output_coord: "WCONGNAMUL" }));
+    geoCache = w ? { addr, x: Math.round(w.x), y: Math.round(w.y) } : { addr, x: null, y: null };
+    return geoCache.x ? geoCache : null;
+}
+
+// 주소에서 "동 번지" 만 뽑음 (토지이음 검색에 붙여넣을 값)
+function jibunOf(addr) {
+    const m = addr.match(/(\S*(?:동|가|읍|면|리))\s+(\S+)/);
+    return m ? m[1] + " " + m[2] : "";
+}
+
+// 고시원 카카오맵 링크. 먼저 동 기준으로 걸고, 지오코딩 되면 정확한 좌표로 중심 이동.
 function updateNearbyLinks() {
     const addr = document.getElementById("address").value.trim();
-    const naver = q => "https://map.naver.com/p/search/" + encodeURIComponent(q);
-    const kakao = q => "https://map.kakao.com/?q=" + encodeURIComponent(q);
-    const links = {
-        lnkGosi: addr && naver(addr + " 고시원"),
-        lnkRedevMap: addr && kakao(districtOf(addr) + " 재개발조합"),
-    };
-    Object.entries(links).forEach(([id, href]) => {
-        const a = document.getElementById(id);
-        if (href) { a.href = href; a.classList.remove("disabled"); a.removeAttribute("aria-disabled"); }
+    const d = districtOf(addr);
+    const gosiUrl = c => "https://map.kakao.com/?q=" + encodeURIComponent(d + " 고시원") +
+        (c ? `&urlX=${c.x}&urlY=${c.y}&urlLevel=4` : "");
+    const setGosi = center => {
+        const a = document.getElementById("lnkGosi");
+        if (addr) { a.href = gosiUrl(center); a.classList.remove("disabled"); a.removeAttribute("aria-disabled"); }
         else { a.removeAttribute("href"); a.classList.add("disabled"); a.setAttribute("aria-disabled", "true"); }
+    };
+    setGosi(null);
+    if (addr) geocodeCenter(addr).then(c => {
+        if (c && document.getElementById("address").value.trim() === addr) setGosi(c);
     });
+
+    const jibun = jibunOf(addr);
+    document.getElementById("eumJibun").textContent = jibun ? `"${jibun}"` : "(주소 입력 필요)";
     document.getElementById("nearbyHint").textContent = addr
-        ? "고시원·카카오맵 버튼은 저장한 주소 기준으로 열립니다."
-        : "주소를 입력하면 위 2개 버튼이 그 위치 기준으로 열립니다. 아래 2개는 항상 사용 가능.";
+        ? "고시원 버튼은 카카오맵이 저장한 주소를 중심으로 열립니다."
+        : "주소를 입력하면 고시원 버튼이 그 위치 중심으로 열립니다.";
 }
 
 function collectState() {
