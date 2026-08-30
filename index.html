@@ -4,8 +4,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<!-- 카카오맵 JavaScript 키. 도메인 제한이 걸려 공개돼도 안전 (카카오 공식 방식). 발급: https://developers.kakao.com -->
-<script>window.KAKAO_JS_KEY = "a66749202196f535a2d455027bf172ca";</script>
 <style>
     :root {
         color-scheme: light dark;
@@ -160,18 +158,6 @@
     .nearby-btn.disabled { opacity: 0.4; pointer-events: none; }
     .nearby-note { font-size: 12px; color: var(--text-secondary); line-height: 1.5; margin-top: 8px; }
     .nearby-note a { color: var(--primary-blue); }
-
-    #nearbyMap { width: 100%; height: 300px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 12px; display: none; background: var(--input-bg); }
-    #nearbyMap.show { display: block; }
-    .nearby-status { font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; }
-    .nearby-list { margin: 8px 0 4px; }
-    .nearby-list h4 { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
-    .nearby-list ul { list-style: none; }
-    .nearby-list li { font-size: 13px; padding: 6px 0; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; gap: 8px; }
-    .nearby-list li:last-child { border-bottom: none; }
-    .nearby-list li a { color: var(--primary-blue); text-decoration: none; white-space: nowrap; }
-    .nearby-list .meta { color: var(--text-secondary); font-size: 12px; }
-    .nearby-fallback { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-color); }
 </style>
 
 <div class="app-container">
@@ -196,7 +182,7 @@
             </div>
             <div class="input-group">
                 <label class="input-label" for="address">주소</label>
-                <input type="text" id="address" placeholder="예: 서울 강남구 역삼동 123-45" oninput="updateNearbyLinks()" onchange="onAddressChange()" style="text-align:left; padding-right:16px;">
+                <input type="text" id="address" placeholder="예: 서울 강남구 역삼동 123-45" oninput="updateNearbyLinks()" style="text-align:left; padding-right:16px;">
             </div>
         </section>
 
@@ -299,27 +285,15 @@
         <!-- 주변 정보 확인 -->
         <section class="section">
             <div class="section-title">주변 정보 확인</div>
-            <p class="nearby-status" id="nearbyStatus">주소를 입력하면 반경 2km 지도가 표시됩니다.</p>
-            <div id="nearbyMap"></div>
+            <p class="nearby-note" id="nearbyHint" style="margin-top:0;margin-bottom:12px;">주소를 입력하면 아래 버튼이 그 위치 기준으로 열립니다.</p>
 
-            <div class="nearby-list" id="gosiList" hidden>
-                <h4>주변 고시원·원룸텔 <span class="meta" id="gosiCount"></span></h4>
-                <ul></ul>
-                <p class="nearby-note">방값(월세)은 지도 데이터에 없습니다 — 이름을 눌러 카카오맵에서 확인하세요.</p>
-            </div>
+            <a class="nearby-btn disabled" id="lnkGosi" target="_blank" rel="noopener" aria-disabled="true">🏠 주변 고시원·원룸텔 시세</a>
+            <a class="nearby-btn disabled" id="lnkPin" target="_blank" rel="noopener" aria-disabled="true">📍 내 주소 위치 지도에 표시</a>
+            <a class="nearby-btn disabled" id="lnkRedevMap" target="_blank" rel="noopener" aria-disabled="true">🏗️ 주변 재개발·재건축 조합 (카카오맵)</a>
+            <a class="nearby-btn" id="lnkRedevGov" target="_blank" rel="noopener" href="https://cleanup.seoul.go.kr/cleanup/bsnssttus/lscrMainIndx.do">🏗️ 서울 재개발·재건축 공식 현황 (정비사업 정보몽땅)</a>
 
-            <div class="nearby-list" id="redevList" hidden>
-                <h4>주변 재개발·재건축 조합·추진 사무소 <span class="meta" id="redevCount"></span></h4>
-                <ul></ul>
-                <p class="nearby-note">조합/추진위 사무소 위치입니다(구역 경계 아님). 정확한 구역·단계는 아래 정비사업 정보몽땅에서 확인하세요.</p>
-            </div>
-
-            <div class="nearby-fallback">
-                <a class="nearby-btn disabled" id="lnkGosi" target="_blank" rel="noopener" aria-disabled="true">🏠 네이버지도에서 주변 고시원 보기</a>
-                <a class="nearby-btn" id="lnkRedev1" target="_blank" rel="noopener" href="https://cleanup.seoul.go.kr/cleanup/bsnssttus/lscrMainIndx.do">🏗️ 서울 재개발·재건축 사업장 (정비사업 정보몽땅)</a>
-                <a class="nearby-btn" id="lnkRedev2" target="_blank" rel="noopener" href="https://jjmap.co.kr/">🏗️ 전국 재개발·재건축 지도 (재재맵)</a>
-                <p class="nearby-note">지도의 재개발 마커는 카카오맵 장소검색 결과(조합·추진위 사무소)입니다. 공식 구역·추진단계는 위 링크에서 확인하세요. 전국 고시원 매물: <a href="http://www.gosi1.net/" target="_blank" rel="noopener">고시원넷</a>.</p>
-            </div>
+            <p class="nearby-note">고시원·내 위치·조합 검색은 <b>네이버·카카오 지도</b>가 저장 주소를 중심으로 열립니다. 반경 필터는 없으니 지도를 축소해 2km 범위를 보세요.</p>
+            <p class="nearby-note">정비사업 정보몽땅은 <b>서울시 공식</b> 자료(구역·단계·조합 예산)이며 주소 자동 이동은 안 되니 자치구를 직접 고르세요. 전국 재개발 지도는 <a href="https://jjmap.co.kr/" target="_blank" rel="noopener">재재맵</a>, 전국 고시원 매물은 <a href="http://www.gosi1.net/" target="_blank" rel="noopener">고시원넷</a>.</p>
         </section>
     </main>
 
@@ -427,169 +401,32 @@ function recalc() {
     });
 }
 
+// 주소에서 "구/군 + 법정동" 만 뽑아냄 (카카오맵 키워드 검색은 번지가 붙으면 주소로만 해석함)
+function districtOf(addr) {
+    const toks = addr.split(/\s+/);
+    const gu = toks.find(t => /(구|군)$/.test(t));
+    const dong = toks.find(t => /(동|가|읍|면|리)$/.test(t) && !/^\d/.test(t));
+    return [gu, dong].filter(Boolean).join(" ") || addr;
+}
+
+// 주소 기준으로 열리는 외부 지도 링크 세팅. 주소 없으면 버튼 비활성.
 function updateNearbyLinks() {
     const addr = document.getElementById("address").value.trim();
-    const a = document.getElementById("lnkGosi");
-    if (addr) {
-        a.href = "https://map.naver.com/p/search/" + encodeURIComponent(addr + " 고시원");
-        a.classList.remove("disabled");
-        a.removeAttribute("aria-disabled");
-    } else {
-        a.removeAttribute("href");
-        a.classList.add("disabled");
-        a.setAttribute("aria-disabled", "true");
-    }
-}
-
-/* ===== 주변 지도 (카카오맵) ===== */
-const RADIUS_M = 2000;
-let kakaoReady = null;      // Promise<boolean>
-let nearbyMap = null;
-let nearbyOverlays = [];    // 마커·원 등 지도에서 지울 오버레이
-
-function loadKakao() {
-    if (kakaoReady) return kakaoReady;
-    kakaoReady = new Promise(resolve => {
-        const key = window.KAKAO_JS_KEY;
-        if (!key || key === "REPLACE_WITH_KAKAO_JS_KEY") { resolve(false); return; }
-        const s = document.createElement("script");
-        s.src = "//dapi.kakao.com/v2/maps/sdk.js?autoload=false&libraries=services&appkey=" + key;
-        s.onload = () => kakao.maps.load(() => resolve(true));
-        s.onerror = () => resolve(false);
-        document.head.appendChild(s);
+    const naver = q => "https://map.naver.com/p/search/" + encodeURIComponent(q);
+    const kakao = q => "https://map.kakao.com/?q=" + encodeURIComponent(q);
+    const links = {
+        lnkGosi: addr && naver(addr + " 고시원"),
+        lnkPin: addr && naver(addr),
+        lnkRedevMap: addr && kakao(districtOf(addr) + " 재개발조합"),
+    };
+    Object.entries(links).forEach(([id, href]) => {
+        const a = document.getElementById(id);
+        if (href) { a.href = href; a.classList.remove("disabled"); a.removeAttribute("aria-disabled"); }
+        else { a.removeAttribute("href"); a.classList.add("disabled"); a.setAttribute("aria-disabled", "true"); }
     });
-    return kakaoReady;
-}
-
-function clearOverlays() {
-    nearbyOverlays.forEach(o => o.setMap(null));
-    nearbyOverlays = [];
-}
-
-function setStatus(msg) { document.getElementById("nearbyStatus").textContent = msg; }
-
-function haversine(a, b) {
-    const R = 6371000, rad = d => d * Math.PI / 180;
-    const dLat = rad(b.lat - a.lat), dLng = rad(b.lng - a.lng);
-    const s = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
-    return 2 * R * Math.asin(Math.sqrt(s));
-}
-
-function renderList(elId, countId, items, makeRow) {
-    const box = document.getElementById(elId);
-    const ul = box.querySelector("ul");
-    ul.innerHTML = "";
-    items.forEach(it => ul.insertAdjacentHTML("beforeend", makeRow(it)));
-    document.getElementById(countId).textContent = items.length ? `${items.length}곳` : "없음";
-    box.hidden = false;
-}
-
-function onAddressChange() {
-    updateNearbyLinks();
-    const addr = document.getElementById("address").value.trim();
-    const mapEl = document.getElementById("nearbyMap");
-    document.getElementById("gosiList").hidden = true;
-    document.getElementById("redevList").hidden = true;
-    if (!addr) { mapEl.classList.remove("show"); setStatus("주소를 입력하면 반경 2km 지도가 표시됩니다."); return; }
-
-    setStatus("지도를 불러오는 중…");
-    loadKakao().then(ok => {
-        if (!ok) { mapEl.classList.remove("show"); setStatus("카카오맵 키가 설정되지 않았습니다. 아래 링크를 이용하세요."); return; }
-        geocodeFlexible(addr).then(center => {
-            if (!center) {
-                mapEl.classList.remove("show");
-                setStatus("주소를 찾을 수 없습니다. 지번/도로명 주소나 건물명으로 다시 입력하거나 아래 링크를 이용하세요.");
-                return;
-            }
-            drawMap(center);
-        });
-    });
-}
-
-// addressSearch(지번/도로명) 우선 → keywordSearch(건물명·느슨한 주소) → 번지 뗀 주소 순으로 폴백
-function geocodeFlexible(query) {
-    const geo = new kakao.maps.services.Geocoder();
-    const places = new kakao.maps.services.Places();
-    const tryAddress = q => new Promise(r => geo.addressSearch(q, (res, s) =>
-        r(s === kakao.maps.services.Status.OK && res.length ? { lat: +res[0].y, lng: +res[0].x } : null)));
-    const tryKeyword = q => new Promise(r => places.keywordSearch(q, (d, s) =>
-        r(s === kakao.maps.services.Status.OK && d.length ? { lat: +d[0].y, lng: +d[0].x } : null)));
-    const shorter = query.trim().replace(/\s+\S+$/, "");
-    return tryAddress(query)
-        .then(c => c || tryKeyword(query))
-        .then(c => c || (shorter && shorter !== query ? tryKeyword(shorter) : null));
-}
-
-function drawMap(center) {
-    const mapEl = document.getElementById("nearbyMap");
-    mapEl.classList.add("show");
-    const pos = new kakao.maps.LatLng(center.lat, center.lng);
-    if (!nearbyMap) nearbyMap = new kakao.maps.Map(mapEl, { center: pos, level: 6 });
-    else nearbyMap.setCenter(pos);
-    nearbyMap.relayout();
-    clearOverlays();
-
-    // 내 주소 핀 + 2km 원
-    nearbyOverlays.push(new kakao.maps.Marker({ map: nearbyMap, position: pos, zIndex: 10 }));
-    nearbyOverlays.push(new kakao.maps.Circle({
-        map: nearbyMap, center: pos, radius: RADIUS_M,
-        strokeWeight: 1, strokeColor: "#3182f6", strokeOpacity: 0.8,
-        fillColor: "#3182f6", fillOpacity: 0.06
-    }));
-    nearbyMap.setBounds(new kakao.maps.LatLngBounds(
-        new kakao.maps.LatLng(center.lat - 0.022, center.lng - 0.028),
-        new kakao.maps.LatLng(center.lat + 0.022, center.lng + 0.028)
-    ));
-
-    setStatus(`반경 2km · ${document.getElementById("address").value.trim()}`);
-
-    const row = p =>
-        `<li><span>${escapeHtml(p.name)}<br><span class="meta">${escapeHtml(p.addr || "")} · ${Math.round(p.dist)}m</span></span>` +
-        `<a href="${p.url}" target="_blank" rel="noopener">카카오맵</a></li>`;
-
-    searchPlaces(center, ["고시원", "원룸텔"]).then(items => {
-        addMarkers(items, "#e0435a");
-        renderList("gosiList", "gosiCount", items, row);
-    });
-    searchPlaces(center, ["재개발조합", "재건축조합", "재정비촉진사업", "주택재개발정비사업조합"]).then(items => {
-        addMarkers(items, "#1d4ed8");
-        renderList("redevList", "redevCount", items, row);
-    });
-}
-
-// 여러 키워드로 카카오 장소검색 → 반경 내 중복제거 결과를 거리순으로
-function searchPlaces(center, keywords) {
-    return new Promise(resolve => {
-        const places = new kakao.maps.services.Places();
-        const seen = new Set(), found = [];
-        let pending = keywords.length;
-        keywords.forEach(kw => {
-            places.keywordSearch(kw, (data, status) => {
-                if (status === kakao.maps.services.Status.OK) data.forEach(d => {
-                    if (seen.has(d.id)) return;
-                    seen.add(d.id);
-                    const lat = +d.y, lng = +d.x;
-                    const dist = haversine(center, { lat, lng });
-                    if (dist <= RADIUS_M) found.push({ name: d.place_name, addr: d.road_address_name || d.address_name, url: d.place_url, lat, lng, dist });
-                });
-                if (--pending === 0) { found.sort((a, b) => a.dist - b.dist); resolve(found); }
-            }, { x: center.lng, y: center.lat, radius: RADIUS_M, size: 15 });
-        });
-    });
-}
-
-function addMarkers(items, color) {
-    const img = new kakao.maps.MarkerImage(
-        "data:image/svg+xml;base64," + btoa(
-            `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"><circle cx="9" cy="9" r="7" fill="${color}" stroke="#fff" stroke-width="2"/></svg>`),
-        new kakao.maps.Size(18, 18));
-    items.forEach(p => nearbyOverlays.push(new kakao.maps.Marker({
-        map: nearbyMap, position: new kakao.maps.LatLng(p.lat, p.lng), image: img
-    })));
-}
-
-function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    document.getElementById("nearbyHint").textContent = addr
+        ? "버튼이 저장한 주소 기준으로 열립니다."
+        : "주소를 입력하면 아래 버튼이 그 위치 기준으로 열립니다.";
 }
 
 function collectState() {
@@ -611,7 +448,6 @@ function applyState(state) {
     });
     recalc();
     updateNearbyLinks();
-    onAddressChange();
 }
 
 function loadAll() {
@@ -668,7 +504,6 @@ function newProperty() {
     document.getElementById("propList").value = "";
     recalc();
     updateNearbyLinks();
-    onAddressChange();
 }
 
 function deleteProperty() {
