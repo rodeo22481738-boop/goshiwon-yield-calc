@@ -160,6 +160,13 @@
     .nearby-btn.disabled { opacity: 0.4; pointer-events: none; }
     .nearby-note { font-size: 12px; color: var(--text-secondary); line-height: 1.5; margin-top: 8px; }
     .nearby-note a { color: var(--primary-blue); }
+    .jibun-line { font-size: 14px; color: var(--text-primary); margin: 2px 0 10px; }
+    .jibun-line b { font-size: 16px; }
+    .jibun-copied { color: var(--primary-blue); font-weight: 600; margin-left: 6px; display: none; }
+    .jibun-copied.show { display: inline; }
+    button.nearby-btn { cursor: pointer; font-family: inherit; }
+    .redev-legend { font-size: 11px; color: var(--text-secondary); line-height: 1.9; margin: 0 0 10px; }
+    .redev-legend span { margin-left: 8px; }
 </style>
 
 <div class="app-container">
@@ -289,13 +296,19 @@
             <div class="section-title">주변 정보 확인</div>
             <p class="nearby-note" id="nearbyHint" style="margin-top:0;margin-bottom:12px;">주소를 입력하면 고시원 버튼이 그 위치 중심으로 열립니다.</p>
 
-            <a class="nearby-btn disabled" id="lnkGosi" target="_blank" rel="noopener" aria-disabled="true">🏠 주변 고시원·원룸텔 (카카오맵)</a>
-            <a class="nearby-btn" id="lnkEum" target="_blank" rel="noopener" href="https://www.eum.go.kr/web/am/amMain.jsp">🏗️ 이 주소가 정비구역인지 확인 (토지이음)</a>
-            <a class="nearby-btn" id="lnkRedevJj" target="_blank" rel="noopener" href="https://jjmap.co.kr/">🏗️ 재개발·재건축 구역 지도 (재재맵)</a>
-            <a class="nearby-btn" id="lnkRedevGov" target="_blank" rel="noopener" href="https://cleanup.seoul.go.kr/cleanup/bsnssttus/lscrMainIndx.do">🏗️ 서울 재개발·재건축 공식 현황 (정비사업 정보몽땅)</a>
+            <a class="nearby-btn disabled" id="lnkGosi" target="_blank" rel="noopener" aria-disabled="true">🏠 주변 고시원·원룸텔 시세 (카카오맵)</a>
 
-            <p class="nearby-note"><b>토지이음</b>에서 지번 <b id="eumJibun">(주소 입력 필요)</b> 을 입력 → 열람 → <b>「지역지구등 지정여부」</b> 칸에 <b>"정비구역"·"재정비촉진지구"</b>가 있으면 그 필지가 재개발·재건축 구역입니다(국토부 공식). 사이트 자동 이동은 안 돼서 지번은 직접 입력해야 합니다.</p>
-            <p class="nearby-note"><b>재재맵</b>은 구역 경계를 색으로 보여주고(구역명 검색), <b>정비사업 정보몽땅</b>은 서울시 공식 사업장·단계·조합 예산(자치구 선택). 전국 고시원 매물: <a href="http://www.gosi1.net/" target="_blank" rel="noopener">고시원넷</a>.</p>
+            <button type="button" class="nearby-btn disabled" id="btnRedev" aria-disabled="true">🏗️ 이 주소가 재개발·재건축 구역인지 지도로 보기</button>
+            <p class="jibun-line" id="redevVerdict" hidden></p>
+            <div id="redevMap" style="display:none; width:100%; height:300px; border-radius:8px; overflow:hidden; margin-bottom:10px; border:1px solid var(--border-color);"></div>
+            <p class="redev-legend" id="redevLegend" hidden><span style="color:#e8590c">■</span>재개발<span style="color:#1971c2">■</span>재건축<span style="color:#9c36b5">■</span>정비예정<span style="color:#e03131">■</span>재정비촉진<span style="color:#2f9e44">■</span>주거환경개선 · 진한 칸이 내 위치가 속한 구역</p>
+            <p class="nearby-note">서울시 <b>의제처리구역</b> 공식 경계(서울 열린데이터광장, 반기 갱신) 기준. 경계는 약 12m 단순화됐고 법적 효력은 없습니다 — 확정은 아래 <b>토지이음</b>에서. 서울 밖 주소는 지도 데이터가 없어 토지이음만 이용하세요.</p>
+
+            <a class="nearby-btn" id="lnkEum" target="_blank" rel="noopener" href="https://www.eum.go.kr/web/am/amMain.jsp">📄 토지이음에서 공식 확인 (지번 자동복사)</a>
+            <a class="nearby-btn" id="lnkRedevGov" target="_blank" rel="noopener" href="https://cleanup.seoul.go.kr/cleanup/bsnssttus/lscrMainIndx.do">📄 서울 정비사업 공식 현황 (정보몽땅)</a>
+
+            <p class="jibun-line" id="jibunLine" hidden>토지이음에 붙여넣을 지번: <b id="eumJibun"></b><span class="jibun-copied" id="jibunCopied">✓ 복사됨</span></p>
+            <p class="nearby-note"><b>토지이음</b> 버튼을 누르면 위 지번이 클립보드에 복사됩니다. 검색창에 붙여넣기(Ctrl+V) → 열람 → <b>「지역지구등 지정여부」</b> 칸에 <b>"정비구역"·"재정비촉진지구"</b>가 있는지 확인. 전국 고시원 매물: <a href="http://www.gosi1.net/" target="_blank" rel="noopener">고시원넷</a>.</p>
         </section>
     </main>
 
@@ -427,19 +440,20 @@ function loadKakaoSdk() {
     return kakaoSdkP;
 }
 
-// 주소 → 카카오맵 중심좌표(WCONGNAMUL). 실패 시 null. addr별 1회 캐시.
-let geoCache = { addr: null, x: null, y: null };
+// 주소 → 좌표. { x, y }(WCONGNAMUL, 고시원 링크용) + { lat, lng }(WGS84, 지도용). 실패 시 null. addr별 1회 캐시.
+let geoCache = { addr: null, x: null, y: null, lat: null, lng: null };
 async function geocodeCenter(addr) {
-    if (geoCache.addr === addr) return geoCache.x ? geoCache : null;
+    if (geoCache.addr === addr) return geoCache.lat != null ? geoCache : null;
     if (!(await loadKakaoSdk())) return null;
     const gc = new kakao.maps.services.Geocoder();
     const OK = kakao.maps.services.Status.OK;
     let hit = await new Promise(r => gc.addressSearch(addr, (res, st) => r(st === OK && res[0] ? res[0] : null)));
     if (!hit) hit = await new Promise(r => new kakao.maps.services.Places().keywordSearch(addr, (d, st) => r(st === OK && d[0] ? d[0] : null)));
-    if (!hit) { geoCache = { addr, x: null, y: null }; return null; }
-    const w = await new Promise(r => gc.transCoord(+hit.x, +hit.y, (res, st) => r(st === OK && res[0] ? res[0] : null), { input_coord: "WGS84", output_coord: "WCONGNAMUL" }));
-    geoCache = w ? { addr, x: Math.round(w.x), y: Math.round(w.y) } : { addr, x: null, y: null };
-    return geoCache.x ? geoCache : null;
+    if (!hit) { geoCache = { addr, x: null, y: null, lat: null, lng: null }; return null; }
+    const lat = +hit.y, lng = +hit.x;
+    const w = await new Promise(r => gc.transCoord(lng, lat, (res, st) => r(st === OK && res[0] ? res[0] : null), { input_coord: "WGS84", output_coord: "WCONGNAMUL" }));
+    geoCache = { addr, lat, lng, x: w ? Math.round(w.x) : null, y: w ? Math.round(w.y) : null };
+    return geoCache;
 }
 
 // 주소에서 "동 번지" 만 뽑음 (토지이음 검색에 붙여넣을 값)
@@ -453,7 +467,7 @@ function updateNearbyLinks() {
     const addr = document.getElementById("address").value.trim();
     const d = districtOf(addr);
     const gosiUrl = c => "https://map.kakao.com/?q=" + encodeURIComponent(d + " 고시원") +
-        (c ? `&urlX=${c.x}&urlY=${c.y}&urlLevel=4` : "");
+        (c && c.x ? `&urlX=${c.x}&urlY=${c.y}&urlLevel=4` : "");
     const setGosi = center => {
         const a = document.getElementById("lnkGosi");
         if (addr) { a.href = gosiUrl(center); a.classList.remove("disabled"); a.removeAttribute("aria-disabled"); }
@@ -465,10 +479,122 @@ function updateNearbyLinks() {
     });
 
     const jibun = jibunOf(addr);
-    document.getElementById("eumJibun").textContent = jibun ? `"${jibun}"` : "(주소 입력 필요)";
+    document.getElementById("eumJibun").textContent = jibun;
+    document.getElementById("jibunLine").hidden = !jibun;
+    document.getElementById("jibunCopied").classList.remove("show");
     document.getElementById("nearbyHint").textContent = addr
         ? "고시원 버튼은 카카오맵이 저장한 주소를 중심으로 열립니다."
-        : "주소를 입력하면 고시원 버튼이 그 위치 중심으로 열립니다.";
+        : "주소를 입력하면 아래 버튼이 그 위치 기준으로 동작합니다.";
+
+    const rb = document.getElementById("btnRedev");
+    if (addr) { rb.classList.remove("disabled"); rb.removeAttribute("aria-disabled"); }
+    else { rb.classList.add("disabled"); rb.setAttribute("aria-disabled", "true"); }
+    resetRedevMap();
+}
+
+// ── 서울 정비구역(재개발·재건축) 지도 ──────────────────────────
+const REDEV_COLOR = {
+    "재개발": "#e8590c", "재건축": "#1971c2", "정비예정구역": "#9c36b5",
+    "재정비촉진지구": "#e03131", "주거환경개선": "#2f9e44", "정비구역": "#e8590c",
+};
+let redevGeo = null, redevMap = null, redevOverlays = [];
+
+function resetRedevMap() {
+    redevOverlays.forEach(o => o.setMap(null));
+    redevOverlays = [];
+    document.getElementById("redevMap").style.display = "none";
+    document.getElementById("redevLegend").hidden = true;
+    document.getElementById("redevVerdict").hidden = true;
+}
+
+async function loadRedevGeo() {
+    if (redevGeo) return redevGeo;
+    try {
+        redevGeo = await fetch("data/redev-seoul.geojson").then(r => r.json());
+    } catch { redevGeo = { features: [] }; }
+    return redevGeo;
+}
+
+function pointInRing(x, y, ring) {
+    let inside = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+        if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) inside = !inside;
+    }
+    return inside;
+}
+function pointInGeom(x, y, geom) {
+    const polys = geom.type === "Polygon" ? [geom.coordinates] : geom.coordinates;
+    for (const rings of polys) {
+        if (!pointInRing(x, y, rings[0])) continue;
+        let hole = false;
+        for (let h = 1; h < rings.length; h++) if (pointInRing(x, y, rings[h])) hole = true;
+        if (!hole) return true;
+    }
+    return false;
+}
+function geomNear(geom, lng, lat, dLng, dLat) {
+    const polys = geom.type === "Polygon" ? [geom.coordinates] : geom.coordinates;
+    for (const rings of polys) for (const p of rings[0]) {
+        if (Math.abs(p[0] - lng) < dLng && Math.abs(p[1] - lat) < dLat) return true;
+    }
+    return false;
+}
+
+async function showRedevMap() {
+    const addr = document.getElementById("address").value.trim();
+    if (!addr) return;
+    const box = document.getElementById("redevMap");
+    const verdict = document.getElementById("redevVerdict");
+    verdict.hidden = false;
+    verdict.textContent = "위치 확인 중…";
+    if (!(await loadKakaoSdk())) { verdict.textContent = "지도를 불러오지 못했습니다. 카카오 키 설정을 확인하세요."; return; }
+    const c = await geocodeCenter(addr);
+    if (!c || c.lat == null) { verdict.innerHTML = "주소를 찾지 못했습니다. 아래 <b>토지이음</b>에서 확인하세요."; return; }
+    if (addr !== document.getElementById("address").value.trim()) return;
+    if (c.lat < 37.41 || c.lat > 37.72 || c.lng < 126.74 || c.lng > 127.20) {
+        box.style.display = "none";
+        document.getElementById("redevLegend").hidden = true;
+        verdict.innerHTML = "서울 밖 주소는 구역 지도가 없습니다. 아래 <b>토지이음</b>에서 확인하세요.";
+        return;
+    }
+    const fc = await loadRedevGeo();
+    const here = fc.features.filter(f => pointInGeom(c.lng, c.lat, f.geometry));
+    const dLng = 0.0090, dLat = 0.0072;  // 약 800m
+    const near = fc.features.filter(f => here.includes(f) || geomNear(f.geometry, c.lng, c.lat, dLng, dLat));
+
+    box.style.display = "block";
+    document.getElementById("redevLegend").hidden = false;
+    const center = new kakao.maps.LatLng(c.lat, c.lng);
+    if (!redevMap) redevMap = new kakao.maps.Map(box, { center, level: 4 });
+    else { redevMap.setCenter(center); redevMap.setLevel(4); redevMap.relayout(); }
+    redevOverlays.forEach(o => o.setMap(null));
+    redevOverlays = [];
+    redevOverlays.push(new kakao.maps.Marker({ map: redevMap, position: center }));
+
+    for (const f of near) {
+        const color = REDEV_COLOR[f.properties.cat] || "#e8590c";
+        const hit = here.includes(f);
+        const big = f.properties.cat === "재정비촉진지구";  // 넓은 행정구역 — 채움 옅게
+        const polys = f.geometry.type === "Polygon" ? [f.geometry.coordinates] : f.geometry.coordinates;
+        for (const rings of polys) {
+            const path = rings[0].map(p => new kakao.maps.LatLng(p[1], p[0]));
+            redevOverlays.push(new kakao.maps.Polygon({
+                map: redevMap, path,
+                strokeWeight: hit && !big ? 3 : 1, strokeColor: color, strokeOpacity: 0.9,
+                fillColor: color, fillOpacity: big ? 0.06 : (hit ? 0.45 : 0.15),
+            }));
+        }
+    }
+
+    if (here.length) {
+        const names = here.map(f => `「${f.properties.name}」(${f.properties.cat})`).join(", ");
+        verdict.innerHTML = `📍 이 위치는 ${names} 안에 있습니다 — <b>재개발·재건축 구역</b>입니다.`;
+    } else if (near.length) {
+        verdict.innerHTML = `이 위치 자체는 정비구역이 <b>아닙니다</b>. 반경 800m 안에 구역 ${near.length}곳이 색으로 표시됩니다.`;
+    } else {
+        verdict.innerHTML = "이 위치와 반경 800m 안에는 서울시 정비구역이 없습니다.";
+    }
 }
 
 function collectState() {
@@ -555,6 +681,18 @@ function deleteProperty() {
     newProperty();
     refreshList();
 }
+
+document.getElementById("btnRedev").addEventListener("click", () => { showRedevMap(); });
+
+document.getElementById("lnkEum").addEventListener("click", () => {
+    const jibun = jibunOf(document.getElementById("address").value.trim());
+    if (!jibun || !navigator.clipboard) return;
+    navigator.clipboard.writeText(jibun).then(() => {
+        const c = document.getElementById("jibunCopied");
+        c.classList.add("show");
+        setTimeout(() => c.classList.remove("show"), 3000);
+    }).catch(() => {});
+});
 
 refreshList();
 recalc();
