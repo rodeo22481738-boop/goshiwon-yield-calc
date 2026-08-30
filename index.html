@@ -302,7 +302,7 @@
             <p class="jibun-line" id="redevVerdict" hidden></p>
             <div id="redevMap" style="display:none; width:100%; height:300px; border-radius:8px; overflow:hidden; margin-bottom:10px; border:1px solid var(--border-color);"></div>
             <p class="redev-legend" id="redevLegend" hidden><span style="color:#e8590c">■</span>재개발<span style="color:#1971c2">■</span>재건축<span style="color:#9c36b5">■</span>정비예정<span style="color:#e03131">■</span>재정비촉진<span style="color:#2f9e44">■</span>주거환경개선 · 진한 칸이 내 위치가 속한 구역</p>
-            <p class="nearby-note">서울시 <b>의제처리구역</b> 공식 경계(서울 열린데이터광장, 반기 갱신) 기준. 경계는 약 3m 단순화됐고 원본도 법적 효력이 없는 참고자료입니다 — 필지가 구역 경계에 걸쳐 있으면 아래 <b>토지이음</b>에서 확정하세요. 서울 밖 주소는 지도 데이터가 없어 토지이음만 이용하세요.</p>
+            <p class="nearby-note"><b>수도권</b>(서울·경기·인천) 공식 정비구역 경계 기준 — 서울: 서울 열린데이터광장 의제처리구역(반기 갱신), 경기·인천: 브이월드 국토교통부 도시및주거환경정비/정비구역(분기 갱신). 경계는 약 3m 단순화됐고 원본도 법적 효력이 없는 참고자료입니다 — 필지가 구역 경계에 걸쳐 있으면 아래 <b>토지이음</b>에서 확정하세요. 수도권 밖 주소는 지도 데이터가 없어 토지이음만 이용하세요.</p>
 
             <a class="nearby-btn" id="lnkEum" target="_blank" rel="noopener" href="https://www.eum.go.kr/web/am/amMain.jsp">📄 토지이음에서 공식 확인 (지번 자동복사)</a>
             <a class="nearby-btn" id="lnkRedevGov" target="_blank" rel="noopener" href="https://cleanup.seoul.go.kr/cleanup/bsnssttus/lscrMainIndx.do">📄 서울 정비사업 공식 현황 (정보몽땅)</a>
@@ -498,7 +498,7 @@ function updateNearbyLinks() {
     }, 900);
 }
 
-// ── 서울 정비구역(재개발·재건축) 지도 ──────────────────────────
+// ── 수도권(서울·경기·인천) 정비구역(재개발·재건축) 지도 ──────────────
 const REDEV_COLOR = {
     "재개발": "#e8590c", "재건축": "#1971c2", "정비예정구역": "#9c36b5",
     "재정비촉진지구": "#e03131", "주거환경개선": "#2f9e44", "정비구역": "#e8590c",
@@ -516,7 +516,7 @@ function resetRedevMap() {
 async function loadRedevGeo() {
     if (redevGeo) return redevGeo;
     try {
-        redevGeo = await fetch("data/redev-seoul.geojson").then(r => r.json());
+        redevGeo = await fetch("data/redev.geojson").then(r => r.json());
     } catch { redevGeo = { features: [] }; }
     return redevGeo;
 }
@@ -558,10 +558,10 @@ async function showRedevMap() {
     const c = await geocodeCenter(addr);
     if (!c || c.lat == null) { verdict.innerHTML = "주소를 찾지 못했습니다. 아래 <b>토지이음</b>에서 확인하세요."; return; }
     if (addr !== document.getElementById("address").value.trim()) return;
-    if (c.lat < 37.41 || c.lat > 37.72 || c.lng < 126.74 || c.lng > 127.20) {
+    if (c.lat < 36.8 || c.lat > 38.35 || c.lng < 125.9 || c.lng > 127.95) {
         box.style.display = "none";
         document.getElementById("redevLegend").hidden = true;
-        verdict.innerHTML = "서울 밖 주소는 구역 지도가 없습니다. 아래 <b>토지이음</b>에서 확인하세요.";
+        verdict.innerHTML = "수도권(서울·경기·인천) 밖 주소는 구역 지도가 없습니다. 아래 <b>토지이음</b>에서 확인하세요.";
         return;
     }
     const fc = await loadRedevGeo();
@@ -599,7 +599,7 @@ async function showRedevMap() {
     } else if (near.length) {
         verdict.innerHTML = `이 위치 자체는 정비구역이 <b>아닙니다</b>. 반경 800m 안에 구역 ${near.length}곳이 색으로 표시됩니다.`;
     } else {
-        verdict.innerHTML = "이 위치와 반경 800m 안에는 서울시 정비구역이 없습니다.";
+        verdict.innerHTML = "이 위치와 반경 800m 안에는 수도권 정비구역이 없습니다.";
     }
 }
 

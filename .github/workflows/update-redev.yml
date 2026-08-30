@@ -20,17 +20,17 @@ jobs:
 
       - run: pip install pyshp pyproj shapely
 
-      - name: 최신 데이터로 GeoJSON 재생성
-        run: python scripts/build-redev-seoul.py --fetch
+      - name: 최신 데이터로 GeoJSON 재생성 (서울은 최신 다운로드, 경기·인천은 커밋된 vendor zip)
+        run: python scripts/build-redev.py --fetch
 
       - name: 변경이 있으면 커밋 & 푸시
         run: |
-          if git diff --quiet -- data/redev-seoul.geojson; then
+          if git diff --quiet -- data/redev.geojson; then
             echo "원본 데이터 변경 없음 — 커밋 생략"
             exit 0
           fi
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/redev-seoul.geojson
+          git add data/redev.geojson
           git commit -m "재개발 구역 데이터 자동 갱신 ($(date -u +%Y-%m-%d))"
           git push
