@@ -5,7 +5,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <!-- 카카오맵 JavaScript 키. 도메인 제한이 걸려 공개돼도 안전 (카카오 공식 방식). 발급: https://developers.kakao.com -->
-<script>window.KAKAO_JS_KEY = "REPLACE_WITH_KAKAO_JS_KEY";</script>
+<script>window.KAKAO_JS_KEY = "a66749202196f535a2d455027bf172ca";</script>
 <style>
     :root {
         color-scheme: light dark;
@@ -309,15 +309,16 @@
             </div>
 
             <div class="nearby-list" id="redevList" hidden>
-                <h4>주변 재개발·재건축 구역 <span class="meta" id="redevCount"></span></h4>
+                <h4>주변 재개발·재건축 조합·추진 사무소 <span class="meta" id="redevCount"></span></h4>
                 <ul></ul>
+                <p class="nearby-note">조합/추진위 사무소 위치입니다(구역 경계 아님). 정확한 구역·단계는 아래 정비사업 정보몽땅에서 확인하세요.</p>
             </div>
 
             <div class="nearby-fallback">
                 <a class="nearby-btn disabled" id="lnkGosi" target="_blank" rel="noopener" aria-disabled="true">🏠 네이버지도에서 주변 고시원 보기</a>
                 <a class="nearby-btn" id="lnkRedev1" target="_blank" rel="noopener" href="https://cleanup.seoul.go.kr/cleanup/bsnssttus/lscrMainIndx.do">🏗️ 서울 재개발·재건축 사업장 (정비사업 정보몽땅)</a>
                 <a class="nearby-btn" id="lnkRedev2" target="_blank" rel="noopener" href="https://jjmap.co.kr/">🏗️ 전국 재개발·재건축 지도 (재재맵)</a>
-                <p class="nearby-note">재개발 데이터는 서울시만 제공됩니다(전국 통합 API 없음). 서울 외 지역은 위 링크에서 확인하세요. 전국 고시원 매물: <a href="http://www.gosi1.net/" target="_blank" rel="noopener">고시원넷</a>.</p>
+                <p class="nearby-note">지도의 재개발 마커는 카카오맵 장소검색 결과(조합·추진위 사무소)입니다. 공식 구역·추진단계는 위 링크에서 확인하세요. 전국 고시원 매물: <a href="http://www.gosi1.net/" target="_blank" rel="noopener">고시원넷</a>.</p>
             </div>
         </section>
     </main>
@@ -445,7 +446,6 @@ const RADIUS_M = 2000;
 let kakaoReady = null;      // Promise<boolean>
 let nearbyMap = null;
 let nearbyOverlays = [];    // 마커·원 등 지도에서 지울 오버레이
-let redevCache = null;      // redevelopment.json 캐시
 
 function loadKakao() {
     if (kakaoReady) return kakaoReady;
@@ -495,17 +495,29 @@ function onAddressChange() {
     setStatus("지도를 불러오는 중…");
     loadKakao().then(ok => {
         if (!ok) { mapEl.classList.remove("show"); setStatus("카카오맵 키가 설정되지 않았습니다. 아래 링크를 이용하세요."); return; }
-        const geocoder = new kakao.maps.services.Geocoder();
-        geocoder.addressSearch(addr, (res, status) => {
-            if (status !== kakao.maps.services.Status.OK || !res.length) {
+        geocodeFlexible(addr).then(center => {
+            if (!center) {
                 mapEl.classList.remove("show");
-                setStatus("주소를 찾을 수 없습니다. 지번/도로명 주소로 다시 입력하거나 아래 링크를 이용하세요.");
+                setStatus("주소를 찾을 수 없습니다. 지번/도로명 주소나 건물명으로 다시 입력하거나 아래 링크를 이용하세요.");
                 return;
             }
-            const center = { lat: +res[0].y, lng: +res[0].x };
             drawMap(center);
         });
     });
+}
+
+// addressSearch(지번/도로명) 우선 → keywordSearch(건물명·느슨한 주소) → 번지 뗀 주소 순으로 폴백
+function geocodeFlexible(query) {
+    const geo = new kakao.maps.services.Geocoder();
+    const places = new kakao.maps.services.Places();
+    const tryAddress = q => new Promise(r => geo.addressSearch(q, (res, s) =>
+        r(s === kakao.maps.services.Status.OK && res.length ? { lat: +res[0].y, lng: +res[0].x } : null)));
+    const tryKeyword = q => new Promise(r => places.keywordSearch(q, (d, s) =>
+        r(s === kakao.maps.services.Status.OK && d.length ? { lat: +d[0].y, lng: +d[0].x } : null)));
+    const shorter = query.trim().replace(/\s+\S+$/, "");
+    return tryAddress(query)
+        .then(c => c || tryKeyword(query))
+        .then(c => c || (shorter && shorter !== query ? tryKeyword(shorter) : null));
 }
 
 function drawMap(center) {
@@ -530,71 +542,50 @@ function drawMap(center) {
     ));
 
     setStatus(`반경 2km · ${document.getElementById("address").value.trim()}`);
-    searchGosi(center);
-    searchRedev(center);
+
+    const row = p =>
+        `<li><span>${escapeHtml(p.name)}<br><span class="meta">${escapeHtml(p.addr || "")} · ${Math.round(p.dist)}m</span></span>` +
+        `<a href="${p.url}" target="_blank" rel="noopener">카카오맵</a></li>`;
+
+    searchPlaces(center, ["고시원", "원룸텔"]).then(items => {
+        addMarkers(items, "#e0435a");
+        renderList("gosiList", "gosiCount", items, row);
+    });
+    searchPlaces(center, ["재개발조합", "재건축조합", "재정비촉진사업", "주택재개발정비사업조합"]).then(items => {
+        addMarkers(items, "#1d4ed8");
+        renderList("redevList", "redevCount", items, row);
+    });
 }
 
-function searchGosi(center) {
-    const places = new kakao.maps.services.Places();
-    const seen = new Set();
-    const found = [];
-    let pending = 2;
-    const done = () => {
-        if (--pending) return;
-        found.sort((a, b) => a.dist - b.dist);
-        found.forEach(p => {
-            const m = new kakao.maps.Marker({
-                map: nearbyMap, position: new kakao.maps.LatLng(p.lat, p.lng),
-                image: new kakao.maps.MarkerImage("data:image/svg+xml;base64," + btoa(
-                    '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"><circle cx="9" cy="9" r="7" fill="#e0435a" stroke="#fff" stroke-width="2"/></svg>'),
-                    new kakao.maps.Size(18, 18))
-            });
-            nearbyOverlays.push(m);
-        });
-        renderList("gosiList", "gosiCount", found, p =>
-            `<li><span>${escapeHtml(p.name)}<br><span class="meta">${escapeHtml(p.addr || "")} · ${Math.round(p.dist)}m</span></span>` +
-            `<a href="${p.url}" target="_blank" rel="noopener">카카오맵</a></li>`);
-    };
-    ["고시원", "원룸텔"].forEach(kw => {
-        places.keywordSearch(kw, (data, status) => {
-            if (status === kakao.maps.services.Status.OK) {
-                data.forEach(d => {
+// 여러 키워드로 카카오 장소검색 → 반경 내 중복제거 결과를 거리순으로
+function searchPlaces(center, keywords) {
+    return new Promise(resolve => {
+        const places = new kakao.maps.services.Places();
+        const seen = new Set(), found = [];
+        let pending = keywords.length;
+        keywords.forEach(kw => {
+            places.keywordSearch(kw, (data, status) => {
+                if (status === kakao.maps.services.Status.OK) data.forEach(d => {
                     if (seen.has(d.id)) return;
                     seen.add(d.id);
                     const lat = +d.y, lng = +d.x;
                     const dist = haversine(center, { lat, lng });
                     if (dist <= RADIUS_M) found.push({ name: d.place_name, addr: d.road_address_name || d.address_name, url: d.place_url, lat, lng, dist });
                 });
-            }
-            done();
-        }, { x: center.lng, y: center.lat, radius: RADIUS_M, size: 15 });
+                if (--pending === 0) { found.sort((a, b) => a.dist - b.dist); resolve(found); }
+            }, { x: center.lng, y: center.lat, radius: RADIUS_M, size: 15 });
+        });
     });
 }
 
-function searchRedev(center) {
-    const render = () => {
-        if (!Array.isArray(redevCache)) { document.getElementById("redevList").hidden = true; return; }
-        const near = redevCache
-            .map(z => ({ ...z, dist: haversine(center, { lat: z.lat, lng: z.lng }) }))
-            .filter(z => z.dist <= RADIUS_M)
-            .sort((a, b) => a.dist - b.dist);
-        near.forEach(z => {
-            const m = new kakao.maps.Marker({
-                map: nearbyMap, position: new kakao.maps.LatLng(z.lat, z.lng),
-                image: new kakao.maps.MarkerImage("data:image/svg+xml;base64," + btoa(
-                    '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"><rect x="2" y="2" width="14" height="14" rx="3" fill="#1d4ed8" stroke="#fff" stroke-width="2"/></svg>'),
-                    new kakao.maps.Size(18, 18))
-            });
-            nearbyOverlays.push(m);
-        });
-        renderList("redevList", "redevCount", near, z =>
-            `<li><span>${escapeHtml(z.name)}<br><span class="meta">${escapeHtml(z.type || "")} · ${escapeHtml(z.status || "")} · ${Math.round(z.dist)}m</span></span></li>`);
-    };
-    if (redevCache !== null) { render(); return; }
-    fetch("data/redevelopment.json")
-        .then(r => r.ok ? r.json() : Promise.reject())
-        .then(j => { redevCache = j; render(); })
-        .catch(() => { redevCache = false; document.getElementById("redevList").hidden = true; });
+function addMarkers(items, color) {
+    const img = new kakao.maps.MarkerImage(
+        "data:image/svg+xml;base64," + btoa(
+            `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"><circle cx="9" cy="9" r="7" fill="${color}" stroke="#fff" stroke-width="2"/></svg>`),
+        new kakao.maps.Size(18, 18));
+    items.forEach(p => nearbyOverlays.push(new kakao.maps.Marker({
+        map: nearbyMap, position: new kakao.maps.LatLng(p.lat, p.lng), image: img
+    })));
 }
 
 function escapeHtml(s) {
