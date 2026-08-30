@@ -298,7 +298,7 @@
 
             <a class="nearby-btn disabled" id="lnkGosi" target="_blank" rel="noopener" aria-disabled="true">🏠 주변 고시원·원룸텔 시세 (카카오맵)</a>
 
-            <button type="button" class="nearby-btn disabled" id="btnRedev" aria-disabled="true">🏗️ 이 주소가 재개발·재건축 구역인지 지도로 보기</button>
+            <button type="button" class="nearby-btn disabled" id="btnRedev" aria-disabled="true">🏗️ 재개발·재건축 구역 지도 다시 보기</button>
             <p class="jibun-line" id="redevVerdict" hidden></p>
             <div id="redevMap" style="display:none; width:100%; height:300px; border-radius:8px; overflow:hidden; margin-bottom:10px; border:1px solid var(--border-color);"></div>
             <p class="redev-legend" id="redevLegend" hidden><span style="color:#e8590c">■</span>재개발<span style="color:#1971c2">■</span>재건축<span style="color:#9c36b5">■</span>정비예정<span style="color:#e03131">■</span>재정비촉진<span style="color:#2f9e44">■</span>주거환경개선 · 진한 칸이 내 위치가 속한 구역</p>
@@ -483,13 +483,19 @@ function updateNearbyLinks() {
     document.getElementById("jibunLine").hidden = !jibun;
     document.getElementById("jibunCopied").classList.remove("show");
     document.getElementById("nearbyHint").textContent = addr
-        ? "고시원 버튼은 카카오맵이 저장한 주소를 중심으로 열립니다."
-        : "주소를 입력하면 아래 버튼이 그 위치 기준으로 동작합니다.";
+        ? "재개발·재건축 구역 지도는 아래에 자동으로 표시됩니다. 고시원 버튼은 카카오맵을 엽니다."
+        : "주소를 입력하면 재개발 구역 지도가 자동으로 뜨고, 고시원 버튼이 활성화됩니다.";
 
     const rb = document.getElementById("btnRedev");
     if (addr) { rb.classList.remove("disabled"); rb.removeAttribute("aria-disabled"); }
     else { rb.classList.add("disabled"); rb.setAttribute("aria-disabled", "true"); }
     resetRedevMap();
+
+    // 주소가 "동 번지" 꼴로 채워지면 잠시 후 지도 자동 표시 (타이핑 멈춤 대기)
+    clearTimeout(redevTimer);
+    if (addr && jibunOf(addr)) redevTimer = setTimeout(() => {
+        if (document.getElementById("address").value.trim() === addr) showRedevMap();
+    }, 900);
 }
 
 // ── 서울 정비구역(재개발·재건축) 지도 ──────────────────────────
@@ -497,7 +503,7 @@ const REDEV_COLOR = {
     "재개발": "#e8590c", "재건축": "#1971c2", "정비예정구역": "#9c36b5",
     "재정비촉진지구": "#e03131", "주거환경개선": "#2f9e44", "정비구역": "#e8590c",
 };
-let redevGeo = null, redevMap = null, redevOverlays = [];
+let redevGeo = null, redevMap = null, redevOverlays = [], redevTimer = null;
 
 function resetRedevMap() {
     redevOverlays.forEach(o => o.setMap(null));
