@@ -38,7 +38,7 @@ CAT = {
 }
 EXCLUDE = {"UQ1206"}
 
-SIMPLIFY_DEG = 0.00012   # 약 12m. "핀이 구역 안인가" 판정엔 충분.
+SIMPLIFY_DEG = 0.00003   # 약 3m (필지 경계 수준). "핀이 구역 안인가" 판정용.
 COORD_NDIGITS = 5
 
 
