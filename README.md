@@ -32,19 +32,24 @@ python -m http.server 8777
 재개발 지도는 **서울시만** 커버(데이터 출처가 서울 전용). 서울 밖 주소는 토지이음 링크만 뜬다.
 경계는 약 3m 단순화됐고 원본도 법적 효력 없는 참고자료 — 확정 판단은 토지이음에서.
 
-## 재개발 구역 데이터 갱신 (반기 1회)
+## 재개발 구역 데이터 갱신 — 자동
 
-`data/redev-seoul.geojson` 은 아래 스크립트로 생성한다.
+`data/redev-seoul.geojson` 은 **GitHub Actions 가 매달 15일** 자동으로 갱신한다
+(`.github/workflows/update-redev.yml`). 동작:
 
-1. 서울 열린데이터광장 **[서울시 의제처리구역 위치정보(OA-20957)](https://data.seoul.go.kr/dataList/OA-20957/F/1/datasetView.do)**
-   → 파일내려받기에서 최신 `UQ181_의제처리구역_YYYYMM.zip` 다운로드
-2. 받은 파일을 `scratch_redev/uq181.zip` 로 저장 (이 폴더는 git 무시됨)
-3. 실행:
-   ```
-   pip install pyshp pyproj shapely
-   python scripts/build-redev-seoul.py
-   ```
-4. `data/redev-seoul.geojson` 갱신됨 → 커밋
+1. GitHub 서버에서 실행 — **내 PC 안 켜져 있어도 됨**
+2. 서울 열린데이터광장 [OA-20957](https://data.seoul.go.kr/dataList/OA-20957/F/1/datasetView.do)
+   최신 SHP 를 받아 `scripts/build-redev-seoul.py --fetch` 실행
+3. 서울시 원본이 바뀌었을 때만 커밋 & 푸시 → Cloudflare Pages 자동 재배포
+4. 원본 포맷이 바뀌어 스크립트가 실패하면 커밋 안 하고 GitHub 이 실패 알림 메일 발송
+
+수동 실행: GitHub 저장소 → **Actions 탭 → "재개발 구역 데이터 갱신" → Run workflow**
+
+로컬에서 직접 돌리려면:
+```
+pip install pyshp pyproj shapely
+python scripts/build-redev-seoul.py --fetch
+```
 
 `scripts/seoul_gu.json` (자치구 경계, 구역이 어느 구인지 태깅용)은 repo에 포함.
 

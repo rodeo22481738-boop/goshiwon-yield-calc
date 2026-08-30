@@ -2,22 +2,28 @@
 서울시 정비구역(재개발·재건축·재정비촉진 등) 경계 GeoJSON 생성 스크립트.
 
 입력:
-  scratch_redev/uq181.zip  — 서울 열린데이터광장 "서울시 의제처리구역 위치정보"(OA-20957) SHP zip
-     https://data.seoul.go.kr/dataList/OA-20957/F/1/datasetView.do  →  파일내려받기 최신 zip
+  서울 열린데이터광장 "서울시 의제처리구역 위치정보"(OA-20957) SHP zip
+     https://data.seoul.go.kr/dataList/OA-20957/F/1/datasetView.do
   scripts/seoul_gu.json    — 서울 자치구 경계 (구역이 어느 구인지 공간조인용, repo 에 포함)
 출력:
   data/redev-seoul.geojson — index.html 이 fetch 해서 지도에 그림
 
-새 zip 을 받으면 scratch_redev/uq181.zip 을 교체하고 다시 실행. (반기 갱신)
+  python scripts/build-redev-seoul.py           # scratch_redev/uq181.zip 사용 (없으면 자동 다운로드)
+  python scripts/build-redev-seoul.py --fetch   # 최신 zip 강제로 다시 받아서 빌드
+
+GitHub Actions(.github/workflows/update-redev.yml)가 매달 --fetch 로 돌려서
+변경 있으면 자동 커밋 → Cloudflare Pages 자동 배포. (사용자 PC 안 켜져 있어도 됨)
 필요 패키지: pip install pyshp pyproj shapely
 """
-import io, json, sys, zipfile, pathlib, collections
+import io, json, sys, zipfile, pathlib, collections, re, urllib.request
 import shapefile  # pyshp
 from pyproj import Transformer
 from shapely.geometry import shape, mapping
 from shapely.ops import unary_union, transform as shp_transform
-from shapely.prepared import prep
 from shapely.strtree import STRtree
+
+DATASET_PAGE = "https://data.seoul.go.kr/dataList/OA-20957/F/1/datasetView.do"
+DOWNLOAD_API = "https://datafile.seoul.go.kr/bigfile/iot/inf/nio_download.do"
 
 HERE = pathlib.Path(__file__).resolve().parent
 SHP_ZIP = HERE.parent / "scratch_redev" / "uq181.zip"
@@ -40,6 +46,27 @@ EXCLUDE = {"UQ1206"}
 
 SIMPLIFY_DEG = 0.00003   # 약 3m (필지 경계 수준). "핀이 구역 안인가" 판정용.
 COORD_NDIGITS = 5
+
+
+def download_zip(dest):
+    """OA-20957 데이터셋 페이지에서 최신 파일 seq 를 찾아 zip 다운로드."""
+    def get(url, data=None):
+        req = urllib.request.Request(url, data=data,
+                                     headers={"User-Agent": "Mozilla/5.0"})
+        return urllib.request.urlopen(req, timeout=60).read()
+
+    html = get(DATASET_PAGE).decode("utf-8", "replace")
+    seqs = [int(m) for m in re.findall(r"downloadFile\('(\d+)'\)", html)]
+    if not seqs:
+        sys.exit("데이터셋 페이지에서 다운로드 링크를 못 찾음 — 사이트 구조가 바뀐 듯")
+    seq = max(seqs)
+    body = f"infId=OA-20957&seq={seq}&infSeq=1&useCache=false".encode()
+    blob = get(DOWNLOAD_API, body)
+    if blob[:2] != b"PK":
+        sys.exit(f"받은 파일이 zip 이 아님 (seq={seq}, {len(blob)} bytes)")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(blob)
+    print(f"다운로드 완료: seq={seq}, {len(blob)/1024:.0f} KB → {dest}")
 
 
 def load_reader(zip_path):
@@ -69,8 +96,8 @@ def gu_of(pt, tree, polys, names):
 
 
 def main():
-    if not SHP_ZIP.exists():
-        sys.exit(f"SHP zip 없음: {SHP_ZIP}")
+    if "--fetch" in sys.argv or not SHP_ZIP.exists():
+        download_zip(SHP_ZIP)
     r, prj_wkt = load_reader(SHP_ZIP)
     flds = [f[0] for f in r.fields[1:]]
     to_wgs = Transformer.from_crs(prj_wkt, "EPSG:4326", always_xy=True).transform

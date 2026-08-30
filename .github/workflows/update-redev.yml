@@ -1,0 +1,36 @@
+name: 재개발 구역 데이터 갱신
+
+on:
+  schedule:
+    - cron: "0 0 15 * *"   # 매달 15일 00:00 UTC. 서울시 원본이 안 바뀌면 커밋 안 함.
+  workflow_dispatch: {}      # Actions 탭에서 수동 실행 버튼
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install pyshp pyproj shapely
+
+      - name: 최신 데이터로 GeoJSON 재생성
+        run: python scripts/build-redev-seoul.py --fetch
+
+      - name: 변경이 있으면 커밋 & 푸시
+        run: |
+          if git diff --quiet -- data/redev-seoul.geojson; then
+            echo "원본 데이터 변경 없음 — 커밋 생략"
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/redev-seoul.geojson
+          git commit -m "재개발 구역 데이터 자동 갱신 ($(date -u +%Y-%m-%d))"
+          git push
