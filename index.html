@@ -288,12 +288,12 @@
             <p class="nearby-note" id="nearbyHint" style="margin-top:0;margin-bottom:12px;">주소를 입력하면 아래 버튼이 그 위치 기준으로 열립니다.</p>
 
             <a class="nearby-btn disabled" id="lnkGosi" target="_blank" rel="noopener" aria-disabled="true">🏠 주변 고시원·원룸텔 시세</a>
-            <a class="nearby-btn disabled" id="lnkPin" target="_blank" rel="noopener" aria-disabled="true">📍 내 주소 위치 지도에 표시</a>
             <a class="nearby-btn disabled" id="lnkRedevMap" target="_blank" rel="noopener" aria-disabled="true">🏗️ 주변 재개발·재건축 조합 (카카오맵)</a>
+            <a class="nearby-btn" id="lnkRedevJj" target="_blank" rel="noopener" href="https://jjmap.co.kr/">🏗️ 재개발·재건축 구역 지도 (재재맵)</a>
             <a class="nearby-btn" id="lnkRedevGov" target="_blank" rel="noopener" href="https://cleanup.seoul.go.kr/cleanup/bsnssttus/lscrMainIndx.do">🏗️ 서울 재개발·재건축 공식 현황 (정비사업 정보몽땅)</a>
 
-            <p class="nearby-note">고시원·내 위치·조합 검색은 <b>네이버·카카오 지도</b>가 저장 주소를 중심으로 열립니다. 반경 필터는 없으니 지도를 축소해 2km 범위를 보세요.</p>
-            <p class="nearby-note">정비사업 정보몽땅은 <b>서울시 공식</b> 자료(구역·단계·조합 예산)이며 주소 자동 이동은 안 되니 자치구를 직접 고르세요. 전국 재개발 지도는 <a href="https://jjmap.co.kr/" target="_blank" rel="noopener">재재맵</a>, 전국 고시원 매물은 <a href="http://www.gosi1.net/" target="_blank" rel="noopener">고시원넷</a>.</p>
+            <p class="nearby-note"><b>카카오맵</b> 조합검색은 저장 주소의 구·동 기준으로 열립니다. 왼쪽 목록에 "OO구역" 이름이 나옵니다(지도 핀만 보면 구분 안 됨).</p>
+            <p class="nearby-note"><b>재재맵</b>은 구역 경계를 색으로 그려주지만 구역명을 직접 입력해야 하고, <b>정비사업 정보몽땅</b>은 서울시 공식 자료(구역·단계·조합 예산)로 자치구를 직접 골라야 합니다. 전국 고시원 매물: <a href="http://www.gosi1.net/" target="_blank" rel="noopener">고시원넷</a>.</p>
         </section>
     </main>
 
@@ -416,7 +416,6 @@ function updateNearbyLinks() {
     const kakao = q => "https://map.kakao.com/?q=" + encodeURIComponent(q);
     const links = {
         lnkGosi: addr && naver(addr + " 고시원"),
-        lnkPin: addr && naver(addr),
         lnkRedevMap: addr && kakao(districtOf(addr) + " 재개발조합"),
     };
     Object.entries(links).forEach(([id, href]) => {
@@ -425,8 +424,8 @@ function updateNearbyLinks() {
         else { a.removeAttribute("href"); a.classList.add("disabled"); a.setAttribute("aria-disabled", "true"); }
     });
     document.getElementById("nearbyHint").textContent = addr
-        ? "버튼이 저장한 주소 기준으로 열립니다."
-        : "주소를 입력하면 아래 버튼이 그 위치 기준으로 열립니다.";
+        ? "고시원·카카오맵 버튼은 저장한 주소 기준으로 열립니다."
+        : "주소를 입력하면 위 2개 버튼이 그 위치 기준으로 열립니다. 아래 2개는 항상 사용 가능.";
 }
 
 function collectState() {
